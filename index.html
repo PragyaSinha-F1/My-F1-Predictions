@@ -10,16 +10,15 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        /* Reliable Formula 1 Font Source */
         @font-face {
             font-family: 'Formula1';
             src: url('https://smart-realty.com.ua/fonts/Formula1-Black.woff2') format('woff2');
             font-weight: 900;
         }
-        body { background-color: #050505; color: white; font-family: 'Formula1', sans-serif; overflow-x: hidden; }
+        body { background-color: #050505; color: white; font-family: 'Formula1', sans-serif; }
         .f1-glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.08); }
         .f1-gradient { background: linear-gradient(90deg, #e10600 0%, #ff3b3b 100%); }
-        .status-line { height: 4px; width: 100%; position: fixed; top: 0; left: 0; z-index: 100; transition: all 0.5s ease; }
+        .status-line { height: 4px; width: 100%; position: fixed; top: 0; left: 0; z-index: 100; }
     </style>
 </head>
 <body>
@@ -41,7 +40,8 @@
             andretti: { name: 'Andretti', color: '#FFFFFF' }
         };
 
-        const NEXT_RACE = { name: "Bahrain Grand Prix", flag: "🇧🇭", date: new Date("2026-04-12T18:00:00Z") };
+        // Corrected to Australia GP 2026
+        const NEXT_RACE = { name: "Australia Grand Prix", flag: "🇦🇺", date: new Date("2026-03-15T05:00:00Z") };
 
         function App() {
             const [view, setView] = useState('landing');
@@ -51,9 +51,9 @@
             const [activeUser, setActiveUser] = useState(null);
             const [timeLeft, setTimeLeft] = useState("");
             const [inputRoom, setInputRoom] = useState('');
+            const [selectedColor, setSelectedColor] = useState('redbull');
             const [inputUser, setInputUser] = useState('');
             const [inputPred, setInputPred] = useState('');
-            const [selectedColor, setSelectedColor] = useState('redbull');
             const [myRooms, setMyRooms] = useState([]);
 
             useEffect(() => {
@@ -61,7 +61,7 @@
                 if (saved) setMyRooms(JSON.parse(saved));
 
                 const timer = setInterval(() => {
-                    const diff = NEXT_RACE.date.getTime() - new Date().getTime();
+                    const diff = NEXT_RACE.date - new Date();
                     const d = Math.floor(diff / (1000 * 60 * 60 * 24));
                     const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
                     const m = Math.floor((diff / (1000 * 60)) % 60);
@@ -76,6 +76,13 @@
                 await sb.from('f1_rooms').update({ data: { participants: newList, isLocked: lockState } }).eq('code', room.code);
             };
 
+            const handleCreate = async () => {
+                const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+                const name = inputRoom || "2026 Season";
+                const { data } = await sb.from('f1_rooms').insert([{ code, name, data: { participants: [], isLocked: false } }]).select();
+                if (data) handleJoin(code);
+            };
+
             const handleJoin = async (code) => {
                 const { data } = await sb.from('f1_rooms').select().eq('code', code.toUpperCase()).single();
                 if (data) {
@@ -83,12 +90,10 @@
                     setParticipants(data.data.participants || []);
                     setIsLocked(data.data.isLocked || false);
                     setView('dashboard');
-                    if (!myRooms.find(r => r.code === data.code)) {
-                        const newRooms = [...myRooms, {code: data.code, name: data.name}];
-                        setMyRooms(newRooms);
-                        localStorage.setItem('f1_paddock_history', JSON.stringify(newRooms));
-                    }
-                }
+                    const history = [{code: data.code, name: data.name}, ...myRooms.filter(r => r.code !== data.code)];
+                    setMyRooms(history.slice(0, 5));
+                    localStorage.setItem('f1_paddock_history', JSON.stringify(history.slice(0, 5)));
+                } else { alert("Paddock not found!"); }
             };
 
             const getAccuracy = (p) => {
@@ -98,88 +103,117 @@
 
             if (view === 'landing') return (
                 <div className="flex flex-col items-center justify-center min-h-screen p-6">
-                    <h1 className="text-6xl font-black italic tracking-tighter mb-12">F1<span className="text-[#e10600]">PADDOCK</span></h1>
+                    <h1 className="text-5xl font-black italic mb-10 tracking-tighter">F1<span className="text-[#e10600]">PADDOCK</span></h1>
                     <div className="f1-glass p-8 rounded-3xl w-full max-w-sm">
-                        <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-6 text-center text-white outline-none font-bold uppercase" 
-                               placeholder="ENTER ROOM CODE" value={inputRoom} onChange={e => setInputRoom(e.target.value)} />
-                        <button onClick={() => handleJoin(inputRoom)} className="w-full f1-gradient p-4 rounded-xl font-black uppercase text-sm">Enter Paddock</button>
+                        <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-6 text-center text-white outline-none uppercase font-bold" 
+                               placeholder="ROOM NAME OR CODE" value={inputRoom} onChange={e => setInputRoom(e.target.value)} />
+                        <div className="grid grid-cols-2 gap-4">
+                            <button onClick={handleCreate} className="f1-gradient p-4 rounded-xl font-black uppercase text-[10px]">Create</button>
+                            <button onClick={() => handleJoin(inputRoom)} className="bg-white text-black p-4 rounded-xl font-black uppercase text-[10px]">Join</button>
+                        </div>
                     </div>
                     <div className="mt-8 w-full max-w-sm space-y-2">
                         {myRooms.map(r => (
-                            <div key={r.code} onClick={() => handleJoin(r.code)} className="f1-glass p-4 rounded-xl flex justify-between items-center cursor-pointer hover:bg-white/5">
-                                <span className="text-[10px] font-black uppercase">{r.name}</span>
-                                <span className="text-[10px] text-[#e10600]">{r.code}</span>
+                            <div key={r.code} className="f1-glass p-4 rounded-xl flex justify-between items-center cursor-pointer hover:bg-white/5" onClick={() => handleJoin(r.code)}>
+                                <div><p className="text-[10px] font-black uppercase">{r.name}</p><p className="text-[#e10600] text-[9px] font-mono">{r.code}</p></div>
+                                <button onClick={(e) => { e.stopPropagation(); const f = myRooms.filter(x => x.code !== r.code); setMyRooms(f); localStorage.setItem('f1_paddock_history', JSON.stringify(f)); }} className="text-sm">🗑️</button>
                             </div>
                         ))}
                     </div>
                 </div>
             );
 
-            if (view === 'dashboard') return (
-                <div className="max-w-xl mx-auto p-6 pt-16">
-                    <div className={`status-line ${isLocked ? 'bg-red-600 shadow-[0_0_15px_#e10600]' : 'bg-green-500 shadow-[0_0_15px_#22c55e]'}`}></div>
-                    
-                    <div className="f1-glass p-4 rounded-2xl mb-10 flex justify-between items-center border-l-4 border-l-[#e10600]">
-                        <div><p className="text-[9px] font-black opacity-40 uppercase">Next Race</p><p className="text-xs font-black uppercase italic">{NEXT_RACE.flag} {NEXT_RACE.name}</p></div>
-                        <div className="text-right"><p className="text-[9px] font-black opacity-40 uppercase">Lockdown In</p><p className="text-xs font-black text-[#e10600]">{timeLeft}</p></div>
-                    </div>
+            if (view === 'dashboard') {
+                const sorted = [...participants].sort((a, b) => getAccuracy(b) - getAccuracy(a));
+                const p1 = sorted[0]; const p2 = sorted[1]; const p3 = sorted[2];
+                const tie23 = p2 && p3 && getAccuracy(p2) === getAccuracy(p3) && getAccuracy(p2) !== 0;
 
-                    <div className="flex justify-between items-center mb-10">
-                        <div><h2 className="text-3xl font-black italic uppercase leading-none">{room.name}</h2>
-                        <p className="text-[#e10600] text-[9px] font-black mt-2 tracking-widest uppercase">Room Code: {room.code}</p></div>
-                        <button onClick={() => sync(participants, !isLocked)} className={`text-[9px] px-5 py-2 rounded-full font-black uppercase tracking-tighter transition-all ${isLocked ? 'bg-zinc-800 text-green-500' : 'bg-red-600 text-white animate-pulse'}`}>
-                            {isLocked ? '🔓 Open Entry' : '🔒 Lock Paddock'}
-                        </button>
-                    </div>
-
-                    {!isLocked && (
-                        <div className="f1-glass p-8 rounded-[2rem] mb-12 border-zinc-900">
-                            <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl mb-6 outline-none text-xs font-bold" placeholder="STRATEGIST NAME" value={inputUser} onChange={e => setInputUser(e.target.value)} />
-                            <div className="grid grid-cols-6 gap-2 mb-6">
-                                {Object.keys(TEAM_CONFIG).map(id => (
-                                    <div key={id} onClick={() => setSelectedColor(id)} className={`h-6 rounded cursor-pointer border-2 transition-all ${selectedColor === id ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-30'}`} style={{backgroundColor: TEAM_CONFIG[id].color}} />
-                                ))}
-                            </div>
-                            <button onClick={() => { if(inputUser) sync([...participants, {id: Date.now(), name: inputUser, color: selectedColor, predictions: []}], isLocked); setInputUser(''); }} className="w-full bg-white text-black font-black p-4 rounded-xl uppercase text-[10px]">Join the Grid</button>
+                return (
+                    <div className="max-w-xl mx-auto p-6 pt-16">
+                        <div className={`status-line ${isLocked ? 'bg-red-600 shadow-[0_0_15px_#e10600]' : 'bg-green-500 shadow-[0_0_15px_#22c55e]'}`}></div>
+                        
+                        <div className="f1-glass p-4 rounded-2xl mb-8 flex justify-between items-center border-l-4 border-l-[#e10600]">
+                            <div><p className="text-[9px] font-black opacity-40 uppercase">Next Race</p><p className="text-xs font-black uppercase">{NEXT_RACE.flag} {NEXT_RACE.name}</p></div>
+                            <div className="text-right"><p className="text-[9px] font-black opacity-40 uppercase">Starts In</p><p className="text-xs font-black text-[#e10600]">{timeLeft}</p></div>
                         </div>
-                    )}
 
-                    <div className="space-y-4">
-                        {participants.map(p => (
-                            <div key={p.id} onClick={() => { setActiveUser(p); setView('predictions'); }} className="f1-glass p-6 rounded-2xl flex justify-between items-center hover:bg-white/5 cursor-pointer border-r-4" style={{borderRightColor: TEAM_CONFIG[p.color].color}}>
-                                <div><p className="text-xl font-black italic uppercase leading-none">{p.name}</p><p className="text-[9px] opacity-30 font-black uppercase tracking-widest mt-1">{TEAM_CONFIG[p.color].name}</p></div>
-                                <p className="text-2xl font-black italic">{getAccuracy(p)}%</p>
+                        <div className="flex justify-between items-start mb-8">
+                            <div><h2 className="text-3xl font-black italic uppercase leading-none">{room.name}</h2>
+                                <button onClick={() => { navigator.clipboard.writeText(room.code); alert("Code Copied!"); }} className="text-[#e10600] text-[9px] font-black mt-2 uppercase flex items-center gap-1">CODE: {room.code} 📋</button>
                             </div>
-                        ))}
+                            <div className="flex flex-col items-end gap-2">
+                                <button onClick={() => setView('landing')} className="text-zinc-500 text-[10px] font-black uppercase hover:text-white">Exit Room</button>
+                                <button onClick={() => sync(participants, !isLocked)} className={`text-[9px] px-3 py-1 rounded-full font-black uppercase tracking-tighter ${isLocked ? 'bg-zinc-800 text-green-500' : 'bg-red-600 text-white animate-pulse'}`}>
+                                    {isLocked ? '🔓 Open' : '🔒 Lock'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* PODIUM PILLARS */}
+                        <div className="f1-glass p-8 rounded-[2rem] mb-12 text-center border-zinc-900 flex items-end justify-center gap-3 h-64">
+                            <div className="flex-1 max-w-[100px]">
+                                <p className="text-[8px] font-black mb-1 truncate uppercase">{tie23 ? p2.name : (p2?.name || '-')}</p>
+                                <div className="rounded-t-lg flex items-center justify-center font-black text-xl text-black/50 italic" style={{ height: '70px', background: tie23 ? `repeating-linear-gradient(45deg, ${TEAM_CONFIG[p2.color].color}, ${TEAM_CONFIG[p2.color].color} 10px, ${TEAM_CONFIG[p3.color].color} 10px, ${TEAM_CONFIG[p3.color].color} 20px)` : (p2 ? TEAM_CONFIG[p2.color].color : '#222') }}>{tie23 ? '=' : '2'}</div>
+                            </div>
+                            <div className="flex-1 max-w-[110px]">
+                                <p className="text-[10px] font-black mb-1 truncate uppercase">{p1?.name || '-'}</p>
+                                <div className="rounded-t-lg flex items-center justify-center font-black text-4xl text-black/40 italic border-t-2 border-white" style={{ height: '110px', background: p1 ? TEAM_CONFIG[p1.color].color : '#333' }}>1</div>
+                            </div>
+                            {!tie23 && <div className="flex-1 max-w-[90px]">
+                                <p className="text-[8px] font-black mb-1 truncate uppercase">{p3?.name || '-'}</p>
+                                <div className="rounded-t-lg flex items-center justify-center font-black text-xl text-black/50 italic" style={{ height: '50px', background: p3 ? TEAM_CONFIG[p3.color].color : '#111' }}>3</div>
+                            </div>}
+                        </div>
+
+                        {!isLocked && (
+                            <div className="f1-glass p-6 rounded-[2rem] mb-12 border-zinc-900">
+                                <input className="w-full bg-black border border-zinc-800 p-3 rounded-xl mb-4 outline-none text-xs font-bold uppercase" placeholder="STRATEGIST NAME" value={inputUser} onChange={e => setInputUser(e.target.value)} />
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                                    {Object.entries(TEAM_CONFIG).map(([id, team]) => (
+                                        <button key={id} onClick={() => setSelectedColor(id)} className={`p-2 rounded-lg border text-[8px] font-black uppercase transition-all flex items-center gap-2 ${selectedColor === id ? 'bg-zinc-800 border-white' : 'border-zinc-900 opacity-40'}`}>
+                                            <div className="w-2 h-2 rounded-full" style={{background: team.color}}></div> {team.name}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button onClick={() => { if(inputUser) sync([...participants, {id: Date.now(), name: inputUser, color: selectedColor, predictions: []}], isLocked); setInputUser(''); }} className="w-full bg-white text-black font-black p-3 rounded-xl uppercase text-[9px]">Add Strategist</button>
+                            </div>
+                        )}
+
+                        <div className="space-y-3">
+                            {participants.map(p => (
+                                <div key={p.id} onClick={() => { setActiveUser(p); setView('predictions'); }} className="f1-glass p-5 rounded-2xl flex justify-between items-center hover:bg-white/5 cursor-pointer border-l-4" style={{borderLeftColor: TEAM_CONFIG[p.color].color}}>
+                                    <div><p className="text-lg font-black italic uppercase leading-none">{p.name}</p><p className="text-[8px] opacity-40 font-black uppercase mt-1 tracking-widest">{TEAM_CONFIG[p.color].name}</p></div>
+                                    <p className="text-xl font-black italic">{getAccuracy(p)}%</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            );
+                );
+            }
 
             if (view === 'predictions') return (
-                <div className="max-w-xl mx-auto p-6 pt-12">
-                    <button onClick={() => setView('dashboard')} className="mb-10 text-[9px] font-black opacity-30 hover:opacity-100 transition">← BACK TO PADDOCK</button>
-                    <div className="mb-12 border-l-8 p-6 bg-white/5 rounded-r-2xl" style={{borderColor: TEAM_CONFIG[activeUser.color].color}}>
-                        <h1 className="text-5xl font-black italic uppercase leading-tight">{activeUser.name}</h1>
-                        <p className="text-[10px] opacity-40 font-black tracking-[0.4em] uppercase mt-2">LISTED PREDICTIONS</p>
+                <div className="max-w-xl mx-auto p-6 pt-12 text-center sm:text-left">
+                    <button onClick={() => setView('dashboard')} className="mb-10 text-[9px] font-black opacity-30 hover:opacity-100 transition uppercase tracking-widest">← Back to Paddock</button>
+                    <div className="mb-12 border-l-8 p-6 bg-white/5 rounded-r-2xl text-left" style={{borderColor: TEAM_CONFIG[activeUser.color].color}}>
+                        <h1 className="text-5xl font-black italic uppercase leading-none">{activeUser.name}</h1>
+                        <p className="text-[10px] opacity-40 font-black tracking-[0.4em] uppercase mt-4">LISTED PREDICTIONS</p>
                     </div>
 
                     {!isLocked && (
                         <div className="flex gap-2 mb-10">
-                            <input className="flex-1 bg-zinc-900 border border-zinc-800 p-5 rounded-2xl outline-none focus:border-[#e10600] font-bold text-sm" placeholder="TYPE PREDICTION..." value={inputPred} onChange={e => setInputPred(e.target.value)} />
-                            <button onClick={() => { if(!inputPred) return; const nl = participants.map(u => u.id === activeUser.id ? {...u, predictions: [...u.predictions, {id: Date.now(), text: inputPred, done: false}]} : u); sync(nl, isLocked); setActiveUser(nl.find(x => x.id === activeUser.id)); setInputPred(''); }} className="f1-gradient px-8 rounded-2xl font-black text-xs uppercase">ADD</button>
+                            <input className="flex-1 bg-zinc-900 border border-zinc-800 p-4 rounded-xl outline-none text-sm font-bold uppercase" placeholder="NEW PREDICTION..." value={inputPred} onChange={e => setInputPred(e.target.value)} onKeyPress={e => e.key === 'Enter'} />
+                            <button onClick={() => { if(!inputPred) return; const nl = participants.map(u => u.id === activeUser.id ? {...u, predictions: [...u.predictions, {id: Date.now(), text: inputPred, done: false}]} : u); sync(nl, isLocked); setActiveUser(nl.find(x => x.id === activeUser.id)); setInputPred(''); }} className="f1-gradient px-6 rounded-xl font-black text-xs">ADD</button>
                         </div>
                     )}
 
-                    <div className="space-y-3">
+                    <div className="space-y-3 text-left">
                         {activeUser.predictions.map(pr => (
-                            <div key={pr.id} className="f1-glass p-6 rounded-2xl flex items-center justify-between group border-zinc-900">
+                            <div key={pr.id} className="f1-glass p-5 rounded-2xl flex items-center justify-between group">
                                 <div className="flex items-center gap-6 cursor-pointer flex-1" onClick={() => { const nl = participants.map(u => u.id === activeUser.id ? {...u, predictions: u.predictions.map(x => x.id === pr.id ? {...x, done: !x.done} : x)} : u); sync(nl, isLocked); setActiveUser(nl.find(x => x.id === activeUser.id)); }}>
-                                    <div className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-all ${pr.done ? 'bg-green-500 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'border-zinc-700'}`}>
-                                        {pr.done && <span className="text-black font-black text-[10px]">✓</span>}
-                                    </div>
-                                    <span className={`text-lg font-black italic uppercase ${pr.done ? 'opacity-20 line-through' : ''}`}>{pr.text}</span>
+                                    <div className={`w-6 h-6 rounded flex items-center justify-center border-2 ${pr.done ? 'bg-green-500 border-green-500' : 'border-zinc-700'}`}>{pr.done && <span className="text-black font-black text-xs">✓</span>}</div>
+                                    <span className={`text-sm font-black italic uppercase ${pr.done ? 'opacity-20 line-through' : ''}`}>{pr.text}</span>
                                 </div>
-                                {!isLocked && <button onClick={() => { const nl = participants.map(u => u.id === activeUser.id ? {...u, predictions: u.predictions.filter(x => x.id !== pr.id)} : u); sync(nl, isLocked); setActiveUser(nl.find(x => x.id === activeUser.id)); }} className="opacity-0 group-hover:opacity-100 text-zinc-700 hover:text-red-500 font-bold transition">✕</button>}
+                                {!isLocked && <button onClick={() => { const nl = participants.map(u => u.id === activeUser.id ? {...u, predictions: u.predictions.filter(x => x.id !== pr.id)} : u); sync(nl, isLocked); setActiveUser(nl.find(x => x.id === activeUser.id)); }} className="text-zinc-700 hover:text-red-500 font-bold">✕</button>}
                             </div>
                         ))}
                     </div>
