@@ -181,7 +181,7 @@
                     <h1 className="text-6xl font-black f1-italic italic tracking-tighter mb-2">F1<span className="text-[#e10600]">PADDOCK</span></h1>
                     <p className="text-zinc-500 font-bold uppercase tracking-[0.3em] text-[10px] mb-12 border-b border-zinc-900 pb-4 w-64">Season Tracker 2026</p>
                     <div className="f1-glass p-8 rounded-[2rem] shadow-2xl mb-8 w-full max-w-sm">
-                        <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl mb-4 outline-none focus:border-[#e10600] transition text-white uppercase text-center font-bold tracking-widest" placeholder="ROOM CODE" value={inputRoom} onChange={e => setInputRoom(e.target.value)} />
+                        <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl mb-4 outline-none focus:border-[#e10600] transition text-white uppercase text-center font-bold tracking-widest" placeholder="ROOM NAME" value={inputRoom} onChange={e => setInputRoom(e.target.value)} />
                         <div className="grid grid-cols-2 gap-4">
                             <button onClick={handleCreate} className="f1-gradient p-4 rounded-xl font-black text-xs uppercase text-white">Create</button>
                             <button onClick={() => handleJoin()} className="bg-white text-black p-4 rounded-xl font-black text-xs uppercase">Join</button>
