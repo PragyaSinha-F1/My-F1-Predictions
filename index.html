@@ -225,53 +225,78 @@
                             <button onClick={() => setView('landing')} className="text-zinc-600 text-[10px] uppercase font-bold hover:text-white transition">Exit</button>
                         </div>
 
-                        {/* DYNAMIC TEAM PODIUM */}
-{participants.length > 0 && (
-    <div className="f1-glass p-8 rounded-[2.5rem] mb-10 text-center border-zinc-800 shadow-2xl overflow-hidden relative">
-        <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest mb-10">Current Standings</p>
-        <div className="flex items-end justify-center gap-2 md:gap-4 h-48">
-            
-            {/* 2nd Place */}
-            <div className="flex flex-col items-center flex-1 max-w-[100px]">
-                <p className="text-[10px] font-black uppercase mb-2 truncate w-full">{p2?.name || '-'}</p>
-                <div className="w-full rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic transition-all duration-500" 
-                     style={{ 
-                         height: '90px', 
-                         background: p2 ? `linear-gradient(to top, ${TEAM_COLORS[p2.color]}, ${TEAM_COLORS[p2.color]}88)` : '#333',
-                         boxShadow: p2 ? `0 -10px 20px ${TEAM_COLORS[p2.color]}33` : 'none'
-                     }}>2</div>
-                <p className="mt-2 text-[10px] font-bold text-zinc-400">{p2 ? getAccuracy(p2) : 0}%</p>
-            </div>
+                       {/* TIE-AWARE DYNAMIC PODIUM */}
+{participants.length > 0 && (() => {
+    const sorted = [...participants].sort((a, b) => getAccuracy(b) - getAccuracy(a));
+    const p1 = sorted[0];
+    const p2 = sorted[1];
+    const p3 = sorted[2];
 
-            {/* 1st Place */}
-            <div className="flex flex-col items-center flex-1 max-w-[120px]">
-                <p className="text-xs font-black uppercase mb-2 truncate w-full text-white">{p1?.name || '-'}</p>
-                <div className="w-full rounded-t-lg flex items-center justify-center font-black text-4xl text-black/40 italic transition-all duration-500" 
-                     style={{ 
-                         height: '120px', 
-                         background: p1 ? `linear-gradient(to top, ${TEAM_COLORS[p1.color]}, ${TEAM_COLORS[p1.color]}aa)` : '#444',
-                         boxShadow: p1 ? `0 -15px 30px ${TEAM_COLORS[p1.color]}55` : 'none',
-                         border: p1 ? `2px solid ${TEAM_COLORS[p1.color]}` : 'none'
-                     }}>1</div>
-                <p className="mt-2 text-xs font-black text-white">{p1 ? getAccuracy(p1) : 0}%</p>
-            </div>
+    // Tie Detection
+    const isTieP23 = p2 && p3 && getAccuracy(p2) === getAccuracy(p3);
+    
+    // Helper for Tie-Styles
+    const getPillarStyle = (player, height, rank) => {
+        if (!player) return { height, background: '#222' };
+        
+        // If 2nd and 3rd are tied, we make the 2nd pillar a dual-color stripe
+        if (rank === 2 && isTieP23) {
+            return {
+                height,
+                background: `repeating-linear-gradient(45deg, ${TEAM_COLORS[p2.color]}, ${TEAM_COLORS[p2.color]} 10px, ${TEAM_COLORS[p3.color]} 10px, ${TEAM_COLORS[p3.color]} 20px)`,
+                boxShadow: `0 -10px 20px ${TEAM_COLORS[p2.color]}44`
+            };
+        }
 
-            {/* 3rd Place */}
-            <div className="flex flex-col items-center flex-1 max-w-[100px]">
-                <p className="text-[10px] font-black uppercase mb-2 truncate w-full">{p3?.name || '-'}</p>
-                <div className="w-full rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic transition-all duration-500" 
-                     style={{ 
-                         height: '70px', 
-                         background: p3 ? `linear-gradient(to top, ${TEAM_COLORS[p3.color]}, ${TEAM_COLORS[p3.color]}66)` : '#222',
-                         boxShadow: p3 ? `0 -10px 20px ${TEAM_COLORS[p3.color]}22` : 'none'
-                     }}>3</div>
-                <p className="mt-2 text-[10px] font-bold text-zinc-400">{p3 ? getAccuracy(p3) : 0}%</p>
-                                    </div>
-            
-                                </div>
-                           
-                            </div>
-                        )}
+        return {
+            height,
+            background: `linear-gradient(to top, ${TEAM_COLORS[player.color]}, ${TEAM_COLORS[player.color]}88)`,
+            boxShadow: `0 -10px 20px ${TEAM_COLORS[player.color]}33`
+        };
+    };
+
+    return (
+        <div className="f1-glass p-8 rounded-[2.5rem] mb-10 text-center border-zinc-800 shadow-2xl overflow-hidden relative">
+            <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest mb-10">Current Standings</p>
+            <div className="flex items-end justify-center gap-2 md:gap-4 h-48">
+                
+                {/* 2nd Place (or Shared 2nd) */}
+                <div className="flex flex-col items-center flex-1 max-w-[120px]">
+                    <p className="text-[10px] font-black uppercase mb-2 truncate w-full">
+                        {isTieP23 ? `${p2.name.split(' ')[0]} & ${p3.name.split(' ')[0]}` : (p2?.name || '-')}
+                    </p>
+                    <div className="w-full rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic transition-all duration-500" 
+                         style={getPillarStyle(p2, '90px', 2)}>
+                         {isTieP23 ? '=' : '2'}
+                    </div>
+                    <p className="mt-2 text-[10px] font-bold text-zinc-400">{p2 ? getAccuracy(p2) : 0}%</p>
+                </div>
+
+                {/* 1st Place */}
+                <div className="flex flex-col items-center flex-1 max-w-[120px]">
+                    <p className="text-xs font-black uppercase mb-2 truncate w-full text-white">{p1?.name || '-'}</p>
+                    <div className="w-full rounded-t-lg flex items-center justify-center font-black text-4xl text-black/40 italic transition-all duration-700" 
+                         style={{ 
+                             ...getPillarStyle(p1, '120px', 1),
+                             borderTop: `2px solid white`
+                         }}>1</div>
+                    <p className="mt-2 text-xs font-black text-white">{p1 ? getAccuracy(p1) : 0}%</p>
+                </div>
+
+                {/* 3rd Place (Hidden if tied with 2nd) */}
+                {!isTieP23 && (
+                    <div className="flex flex-col items-center flex-1 max-w-[100px]">
+                        <p className="text-[10px] font-black uppercase mb-2 truncate w-full">{p3?.name || '-'}</p>
+                        <div className="w-full rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic transition-all duration-500" 
+                             style={getPillarStyle(p3, '70px', 3)}>3</div>
+                        <p className="mt-2 text-[10px] font-bold text-zinc-400">{p3 ? getAccuracy(p3) : 0}%</p>
+                    </div>
+                )}
+                
+            </div>
+        </div>
+    );
+})()}
                         
                         <div className="f1-glass p-6 rounded-[2rem] mb-10 flex items-center justify-between border-zinc-800">
                            <div className="text-left">
