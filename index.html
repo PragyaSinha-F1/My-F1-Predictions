@@ -3,24 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F1 Paddock 2026 | Team Editions</title>
+    <title>F1 Paddock 2026</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
-        body { font-family: 'Outfit', sans-serif; background: #050505; color: #fff; margin: 0; }
-        .f1-glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .f1-gradient { background: linear-gradient(135deg, #e10600 0%, #900000 100%); }
-        .f1-italic { font-style: italic; letter-spacing: -0.02em; }
-        .card-hover:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.4); }
-        
-        /* Podium Gradients */
-        .podium-1 { height: 120px; background: linear-gradient(to top, #FFD700 20%, #FDB931 100%); box-shadow: 0 0 20px rgba(255, 215, 0, 0.2); }
-        .podium-2 { height: 90px; background: linear-gradient(to top, #C0C0C0 20%, #E0E0E0 100%); }
-        .podium-3 { height: 70px; background: linear-gradient(to top, #CD7F32 20%, #e6a67c 100%); }
+        @import url('https://fonts.cdnfonts.com/css/formula1');
+        body { background-color: black; color: white; font-family: 'Formula1 Display', sans-serif; }
+        .f1-italic { font-family: 'Formula1 Display', sans-serif; font-weight: 900; }
+        .f1-glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .f1-gradient { background: linear-gradient(90deg, #e10600 0%, #ff3b3b 100%); }
     </style>
 </head>
 <body>
@@ -28,26 +22,32 @@
 
     <script type="text/babel">
         const { useState, useEffect } = React;
+        
+        // UPDATE THESE WITH YOUR ACTUAL SUPABASE KEYS
+        const SB_URL = "https://your-project.supabase.co";
+        const SB_KEY = "your-anon-key";
+        const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        const S_URL = 'https://gyzflcxqehesojhimokd.supabase.co';
-        const S_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5emZsY3hxZWhlc29qaGltb2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMzQ4MjcsImV4cCI6MjA4MzcxMDgyN30.fOW7qr9cNEUp6otJU2f-tXtOJxRX4Wge9R76OXE-_Tk';
-        const sb = supabase.createClient(S_URL, S_KEY);
-
-        const TEAM_COLORS = {
-            redbull: '#0600EF', ferrari: '#DC0000', mercedes: '#00D2BE',
-            mclaren: '#FF8700', aston: '#006F62', williams: '#005AFF',
-            haas: '#FFFFFF', alpine: '#0090FF', vcarb: '#6692FF', sauber: '#52e252'
+        const TEAM_CONFIG = {
+            redbull: { name: 'Red Bull', color: '#3671C6' },
+            ferrari: { name: 'Ferrari', color: '#F91536' },
+            mclaren: { name: 'McLaren', color: '#FF8000' },
+            mercedes: { name: 'Mercedes', color: '#6CD3BF' },
+            aston: { name: 'Aston Martin', color: '#229971' },
+            audi: { name: 'Audi F1', color: '#000000' }, 
+            alpine: { name: 'Alpine', color: '#0093CC' },
+            haas: { name: 'Haas', color: '#B6BABD' },
+            williams: { name: 'Williams', color: '#64C4FF' },
+            rb: { name: 'Racing Bulls', color: '#6692FF' },
+            andretti: { name: 'Andretti', color: '#FFFFFF' }
         };
 
         function App() {
-            const [view, setView] = useState('landing'); 
+            const [view, setView] = useState('landing');
             const [room, setRoom] = useState(null);
             const [participants, setParticipants] = useState([]);
-            const [racesDone, setRacesDone] = useState(0);
             const [activeUser, setActiveUser] = useState(null);
             const [myRooms, setMyRooms] = useState([]);
-            const [copyStatus, setCopyStatus] = useState('Copy Code');
-            
             const [inputRoom, setInputRoom] = useState('');
             const [inputUser, setInputUser] = useState('');
             const [inputPred, setInputPred] = useState('');
@@ -59,279 +59,131 @@
             }, []);
 
             const getAccuracy = (p) => {
-                if (!p.predictions || p.predictions.length === 0) return 0;
+                if (!p || !p.predictions || p.predictions.length === 0) return 0;
                 const correct = p.predictions.filter(x => x.done).length;
                 return Math.round((correct / p.predictions.length) * 100);
-            };
-
-            const saveRoomToHistory = (roomData, isOwner = false) => {
-                const newHistory = [{code: roomData.code, name: roomData.name, isOwner}, ...myRooms.filter(r => r.code !== roomData.code)];
-                setMyRooms(newHistory);
-                localStorage.setItem('f1_paddock_history', JSON.stringify(newHistory));
-            };
-
-            const copyToClipboard = () => {
-                if (!room) return;
-                navigator.clipboard.writeText(room.code);
-                setCopyStatus('Copied!');
-                setTimeout(() => setCopyStatus('Copy Code'), 2000);
-            };
-
-            const syncData = async (newList, newRaces) => {
-                if (!room) return;
-                await sb.from('f1_rooms').update({ data: { participants: newList, racesDone: newRaces } }).eq('code', room.code);
             };
 
             const handleCreate = async () => {
                 const code = Math.random().toString(36).substring(2, 8).toUpperCase();
                 const roomName = inputRoom || "2026 Championship";
-                const { data } = await sb.from('f1_rooms').insert([{ code, name: roomName, data: { participants: [], racesDone: 0 } }]).select();
-                if (data) { 
-                    setRoom(data[0]); 
-                    saveRoomToHistory(data[0], true);
-                    setView('dashboard'); 
+                const { data } = await sb.from('f1_rooms').insert([{ code, name: roomName, data: { participants: [] } }]).select();
+                if (data) {
+                    setRoom(data[0]);
+                    const history = [{code, name: roomName, isOwner: true}, ...myRooms];
+                    setMyRooms(history);
+                    localStorage.setItem('f1_paddock_history', JSON.stringify(history));
+                    setView('dashboard');
                 }
             };
 
             const handleJoin = async (targetCode = null) => {
-                const codeToUse = targetCode || inputRoom.toUpperCase();
-                const { data } = await sb.from('f1_rooms').select().eq('code', codeToUse).single();
+                const code = targetCode || inputRoom.toUpperCase();
+                const { data } = await sb.from('f1_rooms').select().eq('code', code).single();
                 if (data) {
                     setRoom(data);
                     setParticipants(data.data.participants || []);
-                    setRacesDone(data.data.racesDone || 0);
-                    saveRoomToHistory(data);
                     setView('dashboard');
-                } else if (!targetCode) {
-                    alert("Room not found!");
                 }
             };
 
-            const deleteRoomPermanently = async (e, code) => {
+            const deleteRoom = (e, code) => {
                 e.stopPropagation();
-                if(confirm(`⚠️ DANGER: Delete room ${code} forever?`)) {
-                    await sb.from('f1_rooms').delete().eq('code', code);
-                    const newHistory = myRooms.filter(r => r.code !== code);
-                    setMyRooms(newHistory);
-                    localStorage.setItem('f1_paddock_history', JSON.stringify(newHistory));
+                if(confirm("Delete this room?")) {
+                    const filtered = myRooms.filter(r => r.code !== code);
+                    setMyRooms(filtered);
+                    localStorage.setItem('f1_paddock_history', JSON.stringify(filtered));
                 }
             };
 
-            const removeFromHistory = (e, code) => {
-                e.stopPropagation();
-                const newHistory = myRooms.filter(r => r.code !== code);
-                setMyRooms(newHistory);
-                localStorage.setItem('f1_paddock_history', JSON.stringify(newHistory));
+            const sync = async (newList) => {
+                setParticipants(newList);
+                await sb.from('f1_rooms').update({ data: { participants: newList } }).eq('code', room.code);
             };
 
             const addPlayer = () => {
-                if (!inputUser.trim()) return;
+                if (!inputUser) return;
                 const newList = [...participants, { id: Date.now(), name: inputUser, color: selectedColor, predictions: [] }];
-                updateLocalAndSync(newList);
+                sync(newList);
                 setInputUser('');
             };
 
-            const deletePlayer = (e, id) => {
-                e.stopPropagation();
-                if(confirm("Remove participant?")) {
-                    const newList = participants.filter(p => p.id !== id);
-                    updateLocalAndSync(newList);
-                }
-            };
-
-            const addPrediction = () => {
-                if (!inputPred.trim()) return;
-                const updatedList = participants.map(p => p.id === activeUser.id ? { ...p, predictions: [...p.predictions, { id: Date.now(), text: inputPred, done: false }] } : p);
-                updateLocalAndSync(updatedList);
-                setInputPred('');
-            };
-
-            const togglePrediction = (predId) => {
-                const updatedList = participants.map(p => p.id === activeUser.id ? { ...p, predictions: p.predictions.map(pr => pr.id === predId ? {...pr, done: !pr.done} : pr) } : p);
-                updateLocalAndSync(updatedList);
-            };
-
-            const deletePrediction = (predId) => {
-                const updatedList = participants.map(p => p.id === activeUser.id ? { ...p, predictions: p.predictions.filter(pr => pr.id !== predId) } : p);
-                updateLocalAndSync(updatedList);
-            };
-
-            const updateLocalAndSync = (newList) => {
-                setParticipants(newList);
-                syncData(newList, racesDone);
-                if (activeUser) {
-                    const found = newList.find(p => p.id === activeUser.id);
-                    if (found) setActiveUser(found);
-                }
-            };
-
-            const updateRaces = (val) => {
-                const next = Math.min(24, Math.max(0, racesDone + val));
-                setRacesDone(next);
-                syncData(participants, next);
-            };
-
-            const getPodium = () => {
-                const sorted = [...participants].sort((a, b) => getAccuracy(b) - getAccuracy(a));
-                return { p1: sorted[0], p2: sorted[1], p3: sorted[2] };
-            };
-
             if (view === 'landing') return (
-                <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-black text-center">
-                    <h1 className="text-6xl font-black f1-italic italic tracking-tighter mb-2">F1<span className="text-[#e10600]">PADDOCK</span></h1>
-                    <p className="text-zinc-500 font-bold uppercase tracking-[0.3em] text-[10px] mb-12 border-b border-zinc-900 pb-4 w-64">Season Tracker 2026</p>
-                    <div className="f1-glass p-8 rounded-[2rem] shadow-2xl mb-8 w-full max-w-sm">
-                        <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl mb-4 outline-none focus:border-[#e10600] transition text-white uppercase text-center font-bold tracking-widest" placeholder="ROOM NAME" value={inputRoom} onChange={e => setInputRoom(e.target.value)} />
+                <div className="flex flex-col items-center justify-center min-h-screen p-6">
+                    <h1 className="text-5xl font-black italic mb-12">F1<span className="text-[#e10600]">PADDOCK</span></h1>
+                    <div className="f1-glass p-8 rounded-3xl w-full max-w-sm mb-6">
+                        <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl mb-4 text-center uppercase font-bold" placeholder="ROOM CODE" value={inputRoom} onChange={e => setInputRoom(e.target.value)} />
                         <div className="grid grid-cols-2 gap-4">
-                            <button onClick={handleCreate} className="f1-gradient p-4 rounded-xl font-black text-xs uppercase text-white">Create</button>
-                            <button onClick={() => handleJoin()} className="bg-white text-black p-4 rounded-xl font-black text-xs uppercase">Join</button>
+                            <button onClick={handleCreate} className="f1-gradient p-4 rounded-xl font-black uppercase text-xs">Create</button>
+                            <button onClick={() => handleJoin()} className="bg-white text-black p-4 rounded-xl font-black uppercase text-xs">Join</button>
                         </div>
                     </div>
-                    {myRooms.length > 0 && (
-                        <div className="text-left w-full max-w-sm">
-                            <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest mb-4 px-2">Recent Paddocks</p>
-                            <div className="space-y-3">
-                                {myRooms.map(r => (
-                                    <div key={r.code} onClick={() => handleJoin(r.code)} className="f1-glass p-4 rounded-2xl flex justify-between items-center cursor-pointer card-hover group relative">
-                                        <div>
-                                            <div className="font-bold text-sm text-white uppercase">{r.name}</div>
-                                            <div className="text-[#e10600] text-[10px] font-mono">{r.code}</div>
-                                        </div>
-                                        {r.isOwner ? (
-                                            <button onClick={(e) => deleteRoomPermanently(e, r.code)} className="text-red-500 hover:text-red-400 p-2 font-bold text-lg" title="Delete Room">🗑️</button>
-                                        ) : (
-                                            <button onClick={(e) => removeFromHistory(e, r.code)} className="text-zinc-600 hover:text-white p-2" title="Remove from list">🗑️</button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
+                    {myRooms.map(r => (
+                        <div key={r.code} className="f1-glass p-4 rounded-xl flex justify-between items-center w-full max-w-sm mb-2 cursor-pointer" onClick={() => handleJoin(r.code)}>
+                            <div><p className="text-xs font-bold">{r.name}</p><p className="text-[#e10600] text-[10px]">{r.code}</p></div>
+                            <button onClick={(e) => deleteRoom(e, r.code)}>🗑️</button>
                         </div>
-                    )}
+                    ))}
                 </div>
             );
 
-if (view === 'dashboard') {
-                // 1. Calculate Standings and Logic upfront
+            if (view === 'dashboard') {
                 const sorted = [...participants].sort((a, b) => getAccuracy(b) - getAccuracy(a));
-                const p1 = sorted[0];
-                const p2 = sorted[1];
-                const p3 = sorted[2];
-
-                // Check for a tie between 2nd and 3rd
-                const isTieP23 = p2 && p3 && getAccuracy(p2) === getAccuracy(p3);
+                const p1 = sorted[0]; const p2 = sorted[1]; const p3 = sorted[2];
+                const tie23 = p2 && p3 && getAccuracy(p2) === getAccuracy(p3) && getAccuracy(p2) !== 0;
 
                 return (
                     <div className="max-w-2xl mx-auto p-6 py-12">
-                        <div className="flex justify-between items-start mb-8">
-                            <div>
-                                <h2 className="text-3xl font-black f1-italic italic uppercase tracking-tight text-white">{room.name}</h2>
-                                <div className="flex items-center gap-3 mt-2">
-                                    <p className="text-[#e10600] font-mono text-xs uppercase">Code: {room.code}</p>
-                                    <button onClick={copyToClipboard} className="bg-zinc-900 text-[10px] px-2 py-1 rounded text-zinc-400 uppercase font-bold">{copyStatus}</button>
-                                </div>
-                            </div>
-                            <button onClick={() => setView('landing')} className="text-zinc-600 text-[10px] uppercase font-bold hover:text-white transition">Exit</button>
+                        <div className="flex justify-between items-center mb-8">
+                            <h2 className="text-2xl font-black italic uppercase">{room.name}</h2>
+                            <button onClick={() => setView('landing')} className="text-zinc-500 text-[10px] font-bold uppercase">Exit</button>
                         </div>
 
-                        {/* TIE-BREAKER PODIUM */}
-                        {participants.length > 0 && (
-                            <div className="f1-glass p-8 rounded-[2.5rem] mb-10 text-center border-zinc-800 shadow-2xl overflow-hidden relative">
-                                <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest mb-10">Current Standings</p>
-                                <div className="flex items-end justify-center gap-2 md:gap-4 h-48">
-                                    
-                                    {/* 2nd Place Pillar (Becomes shared if tied) */}
-                                    <div className="flex flex-col items-center flex-1 max-w-[120px]">
-                                        <p className="text-[10px] font-black uppercase mb-2 truncate w-full px-1">
-                                            {isTieP23 ? `${p2.name.split(' ')[0]} & ${p3.name.split(' ')[0]}` : (p2?.name || '-')}
-                                        </p>
-                                        <div className="w-full rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic transition-all duration-500" 
-                                             style={{
-                                                 height: '90px',
-                                                 background: isTieP23 
-                                                    ? `repeating-linear-gradient(45deg, ${TEAM_COLORS[p2.color]}, ${TEAM_COLORS[p2.color]} 15px, ${TEAM_COLORS[p3.color]} 15px, ${TEAM_COLORS[p3.color]} 30px)`
-                                                    : (p2 ? `linear-gradient(to top, ${TEAM_COLORS[p2.color]}, ${TEAM_COLORS[p2.color]}88)` : '#222'),
-                                                 boxShadow: p2 ? `0 -10px 20px ${TEAM_COLORS[p2.color]}33` : 'none'
-                                             }}>
-                                             {isTieP23 ? '=' : '2'}
-                                        </div>
-                                        <p className="mt-2 text-[10px] font-bold text-zinc-400">{p2 ? getAccuracy(p2) : 0}%</p>
+                        <div className="f1-glass p-8 rounded-[2.5rem] mb-12 text-center relative overflow-hidden">
+                            <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest mb-10">2026 Live Standings</p>
+                            <div className="flex items-end justify-center gap-3 h-48">
+                                <div className="flex-1 max-w-[120px]">
+                                    <p className="text-[10px] font-bold mb-2 truncate">{tie23 ? `${p2.name} & ${p3.name}` : (p2?.name || '-')}</p>
+                                    <div className="rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic"
+                                         style={{ height: '90px', background: tie23 ? `repeating-linear-gradient(45deg, ${TEAM_CONFIG[p2.color].color}, ${TEAM_CONFIG[p2.color].color} 10px, ${TEAM_CONFIG[p3.color].color} 10px, ${TEAM_CONFIG[p3.color].color} 20px)` : (p2 ? TEAM_CONFIG[p2.color].color : '#222') }}>
+                                        {tie23 ? '=' : '2'}
                                     </div>
-
-                                    {/* 1st Place Pillar */}
-                                    <div className="flex flex-col items-center flex-1 max-w-[120px]">
-                                        <p className="text-xs font-black uppercase mb-2 truncate w-full text-white px-1">{p1?.name || '-'}</p>
-                                        <div className="w-full rounded-t-lg flex items-center justify-center font-black text-4xl text-black/40 italic transition-all duration-700" 
-                                             style={{ 
-                                                 height: '120px',
-                                                 background: p1 ? `linear-gradient(to top, ${TEAM_COLORS[p1.color]}, ${TEAM_COLORS[p1.color]}aa)` : '#444',
-                                                 boxShadow: p1 ? `0 -15px 30px ${TEAM_COLORS[p1.color]}55` : 'none',
-                                                 borderTop: p1 ? `2px solid white` : 'none'
-                                             }}>1</div>
-                                        <p className="mt-2 text-xs font-black text-white">{p1 ? getAccuracy(p1) : 0}%</p>
-                                    </div>
-
-                                    {/* 3rd Place Pillar - Disappears if tied with 2nd */}
-                                    {!isTieP23 && (
-                                        <div className="flex flex-col items-center flex-1 max-w-[100px]">
-                                            <p className="text-[10px] font-black uppercase mb-2 truncate w-full px-1">{p3?.name || '-'}</p>
-                                            <div className="w-full rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic transition-all duration-500" 
-                                                 style={{
-                                                     height: '70px',
-                                                     background: p3 ? `linear-gradient(to top, ${TEAM_COLORS[p3.color]}, ${TEAM_COLORS[p3.color]}66)` : '#222',
-                                                     boxShadow: p3 ? `0 -10px 20px ${TEAM_COLORS[p3.color]}22` : 'none'
-                                                 }}>3</div>
-                                            <p className="mt-2 text-[10px] font-bold text-zinc-400">{p3 ? getAccuracy(p3) : 0}%</p>
-                                        </div>
-                                    )}
-                                    
+                                    <p className="mt-2 text-[10px] font-bold text-zinc-400">{p2 ? getAccuracy(p2) : 0}%</p>
                                 </div>
+                                <div className="flex-1 max-w-[120px]">
+                                    <p className="text-xs font-bold mb-2 truncate">{p1?.name || '-'}</p>
+                                    <div className="rounded-t-lg flex items-center justify-center font-black text-4xl text-black/40 italic"
+                                         style={{ height: '120px', background: p1 ? TEAM_CONFIG[p1.color].color : '#333', borderTop: '2px solid white' }}>1</div>
+                                    <p className="mt-2 text-xs font-bold">{p1 ? getAccuracy(p1) : 0}%</p>
+                                </div>
+                                {!tie23 && (
+                                    <div className="flex-1 max-w-[100px]">
+                                        <p className="text-[10px] font-bold mb-2 truncate">{p3?.name || '-'}</p>
+                                        <div className="rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic"
+                                             style={{ height: '70px', background: p3 ? TEAM_CONFIG[p3.color].color : '#111' }}>3</div>
+                                        <p className="mt-2 text-[10px] font-bold text-zinc-400">{p3 ? getAccuracy(p3) : 0}%</p>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                        {/* REST OF DASHBOARD (RACE PROGRESS, ADD PLAYER, etc) CONTINUES HERE... */}                     
-                        <div className="f1-glass p-6 rounded-[2rem] mb-10 flex items-center justify-between border-zinc-800">
-                           <div className="text-left">
-                                <p className="text-zinc-500 text-[10px] uppercase font-bold">Race Progress</p>
-                                <span className="text-5xl font-black f1-italic italic text-white">{racesDone}<span className="text-zinc-800 text-2xl">/24</span></span>
-                           </div>
-                           <div className="flex gap-2">
-                                <button onClick={() => updateRaces(-1)} className="w-10 h-10 f1-glass rounded-full text-white">-</button>
-                                <button onClick={() => updateRaces(1)} className="w-10 h-10 f1-gradient rounded-full text-white font-bold">+</button>
-                           </div>
                         </div>
 
-                        <div className="f1-glass p-8 rounded-[2rem] mb-12 border-zinc-800">
-                            <div className="flex gap-3 mb-6">
-                                <input className="flex-1 bg-black border border-zinc-800 p-4 rounded-xl text-sm text-white" placeholder="Participant Name" value={inputUser} onChange={e => setInputUser(e.target.value)} />
-                                <button onClick={addPlayer} className="bg-white text-black px-8 rounded-xl font-black text-xs uppercase">Add</button>
-                            </div>
-                            <div className="flex flex-wrap gap-2 justify-center">
-                                {Object.entries(TEAM_COLORS).map(([id, color]) => (
-                                    <button key={id} onClick={() => setSelectedColor(id)} className={`w-8 h-8 rounded-full border-2 ${selectedColor === id ? 'border-white scale-125 shadow-lg' : 'border-transparent opacity-40 hover:opacity-100'}`} style={{backgroundColor: color}} />
+                        <div className="f1-glass p-8 rounded-3xl mb-12">
+                            <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl text-white mb-6" placeholder="Participant Name" value={inputUser} onChange={e => setInputUser(e.target.value)} />
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-6">
+                                {Object.entries(TEAM_CONFIG).map(([id, team]) => (
+                                    <button key={id} onClick={() => setSelectedColor(id)} className={`flex items-center gap-2 p-2 rounded-lg border text-[10px] font-bold uppercase transition ${selectedColor === id ? 'bg-zinc-800 border-white' : 'border-zinc-900 opacity-50'}`}>
+                                        <div className="w-3 h-3 rounded-full" style={{background: team.color}} /> {team.name}
+                                    </button>
                                 ))}
                             </div>
+                            <button onClick={addPlayer} className="w-full f1-gradient p-4 rounded-xl font-black uppercase text-xs">Add Strategist</button>
                         </div>
 
-                        <div className="grid gap-4">
+                        <div className="space-y-3">
                             {participants.map(p => (
-                                <div key={p.id} onClick={() => { setActiveUser(p); setView('predictions'); }} 
-                                     className="p-6 rounded-2xl border-l-4 card-hover cursor-pointer flex justify-between items-center transition-all group"
-                                     style={{
-                                         borderLeftColor: TEAM_COLORS[p.color],
-                                         background: `linear-gradient(90deg, ${TEAM_COLORS[p.color]}33 0%, rgba(255,255,255,0.03) 100%)`,
-                                         borderTop: '1px solid rgba(255,255,255,0.05)',
-                                         borderBottom: '1px solid rgba(255,255,255,0.05)',
-                                         borderRight: '1px solid rgba(255,255,255,0.05)'
-                                     }}>
-                                    <div>
-                                        <h4 className="text-xl font-black f1-italic italic uppercase text-white drop-shadow-md">{p.name}</h4>
-                                        <p className="text-[10px] font-bold text-zinc-400 uppercase mt-1">
-                                            {p.predictions.filter(x => x.done).length} / {p.predictions.length} Correct • {getAccuracy(p)}% Accuracy
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <button onClick={(e) => deletePlayer(e, p.id)} className="text-red-400 text-[10px] font-bold uppercase hover:bg-red-500/20 px-2 py-1 rounded transition">Kick</button>
-                                        <span className="text-zinc-500 group-hover:text-white transition">→</span>
-                                    </div>
+                                <div key={p.id} onClick={() => { setActiveUser(p); setView('predictions'); }} className="f1-glass p-6 rounded-2xl flex justify-between items-center cursor-pointer border-l-4 hover:bg-zinc-900/50" style={{borderLeftColor: TEAM_CONFIG[p.color].color}}>
+                                    <span className="font-bold uppercase italic">{p.name}</span>
+                                    <span className="text-[10px] font-bold text-zinc-500">{getAccuracy(p)}% ACCURACY</span>
                                 </div>
                             ))}
                         </div>
@@ -340,38 +192,37 @@ if (view === 'dashboard') {
             }
 
             if (view === 'predictions') return (
-                <div className="max-w-2xl mx-auto p-6 py-12 text-white">
-                    <button onClick={() => setView('dashboard')} className="text-zinc-500 hover:text-white font-black text-[10px] uppercase mb-10 block">← Back to Paddock</button>
-                    
-                    <div className="p-8 rounded-3xl mb-12 flex justify-between items-center relative overflow-hidden" 
-                         style={{
-                             background: `linear-gradient(135deg, ${TEAM_COLORS[activeUser.color]}44 0%, rgba(0,0,0,0) 100%)`,
-                             border: `1px solid ${TEAM_COLORS[activeUser.color]}33`
-                         }}>
-                        <div className="relative z-10">
-                            <h1 className="text-5xl font-black f1-italic italic uppercase text-white drop-shadow-lg">{activeUser.name}</h1>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.3em] mt-2 opacity-80">Listed Predictions</p>
-                        </div>
-                        <div className="text-center relative z-10">
-                            <p className="text-[10px] font-bold uppercase mb-1 opacity-70">Accuracy</p>
-                            <p className="text-4xl font-black f1-italic italic">{getAccuracy(activeUser)}%</p>
-                        </div>
+                <div className="max-w-2xl mx-auto p-6 py-12">
+                    <button onClick={() => setView('dashboard')} className="text-zinc-500 font-bold text-[10px] uppercase mb-10 block">← Back</button>
+                    <div className="p-8 rounded-3xl mb-12 flex justify-between items-center" style={{background: `linear-gradient(135deg, ${TEAM_CONFIG[activeUser.color].color}44 0%, transparent 100%)`}}>
+                        <div><h1 className="text-4xl font-black italic uppercase">{activeUser.name}</h1>
+                        <p className="text-[10px] font-bold opacity-60 tracking-[0.2em]">LISTED PREDICTIONS</p></div>
+                        <p className="text-3xl font-black italic">{getAccuracy(activeUser)}%</p>
                     </div>
-
-                    <div className="flex gap-3 mb-12">
-                        <input className="flex-1 f1-glass p-5 rounded-2xl outline-none focus:border-[#e10600] text-lg bg-transparent border-zinc-800" placeholder="Lodge prediction..." value={inputPred} onChange={e => setInputPred(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addPrediction()} />
-                        <button onClick={addPrediction} className="f1-gradient px-8 rounded-2xl font-black uppercase text-xs">Add</button>
+                    <div className="flex gap-2 mb-8">
+                        <input className="flex-1 f1-glass p-4 rounded-xl bg-transparent border-zinc-800" placeholder="New prediction..." value={inputPred} onChange={e => setInputPred(e.target.value)} onKeyPress={e => e.key === 'Enter' && (async () => {
+                            const updated = participants.map(p => p.id === activeUser.id ? {...p, predictions: [...p.predictions, {id: Date.now(), text: inputPred, done: false}]} : p);
+                            await sync(updated); setActiveUser(updated.find(u => u.id === activeUser.id)); setInputPred('');
+                        })()} />
+                        <button onClick={async () => {
+                            const updated = participants.map(p => p.id === activeUser.id ? {...p, predictions: [...p.predictions, {id: Date.now(), text: inputPred, done: false}]} : p);
+                            await sync(updated); setActiveUser(updated.find(u => u.id === activeUser.id)); setInputPred('');
+                        }} className="f1-gradient px-6 rounded-xl font-black uppercase text-xs">Add</button>
                     </div>
                     <div className="space-y-3">
                         {activeUser.predictions.map(pr => (
-                            <div key={pr.id} className="f1-glass p-6 rounded-2xl flex items-center justify-between border-zinc-800 hover:bg-zinc-900/50 transition">
-                                <div className="flex items-center gap-6 flex-1 cursor-pointer" onClick={() => togglePrediction(pr.id)}>
-                                    <div className={`w-6 h-6 rounded-md border-2 ${pr.done ? 'bg-green-500 border-green-500' : 'border-zinc-700'}`}>
-                                        {pr.done && <span className="text-black text-xs font-black flex items-center justify-center h-full">✓</span>}
-                                    </div>
-                                    <span className={`text-lg ${pr.done ? 'text-zinc-600 line-through' : ''}`}>{pr.text}</span>
+                            <div key={pr.id} className="f1-glass p-5 rounded-xl flex items-center justify-between">
+                                <div className="flex items-center gap-4 cursor-pointer" onClick={async () => {
+                                    const updated = participants.map(p => p.id === activeUser.id ? {...p, predictions: p.predictions.map(x => x.id === pr.id ? {...x, done: !x.done} : x)} : p);
+                                    await sync(updated); setActiveUser(updated.find(u => u.id === activeUser.id));
+                                }}>
+                                    <div className={`w-5 h-5 rounded border ${pr.done ? 'bg-green-500 border-green-500' : 'border-zinc-700'}`}>{pr.done && '✓'}</div>
+                                    <span className={pr.done ? 'text-zinc-600 line-through' : ''}>{pr.text}</span>
                                 </div>
-                                <button onClick={() => deletePrediction(pr.id)} className="text-zinc-600 hover:text-red-500 text-xl font-bold">✕</button>
+                                <button onClick={async () => {
+                                    const updated = participants.map(p => p.id === activeUser.id ? {...p, predictions: p.predictions.filter(x => x.id !== pr.id)} : p);
+                                    await sync(updated); setActiveUser(updated.find(u => u.id === activeUser.id));
+                                }} className="text-zinc-600">✕</button>
                             </div>
                         ))}
                     </div>
