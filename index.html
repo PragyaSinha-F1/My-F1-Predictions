@@ -3,21 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F1 Predictions 2026 | IST</title>
+    <title>F1 Paddock 2026 | IST</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        @font-face { font-family: 'Formula1'; src: url('https://smart-realty.com.ua/fonts/Formula1-Black.woff2') format('woff2'); font-weight: 900; }
-        body { background-color: #050505; color: #e4e4e7; font-family: 'Inter', sans-serif; overflow-x: hidden; }
-        .f1-font { font-family: 'Formula1', sans-serif; }
-        .f1-glass { background: rgba(15, 15, 15, 0.8); border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;900&display=swap');
+        body { background-color: #050505; color: #e4e4e7; font-family: 'Inter', sans-serif; }
+        .f1-font { font-family: 'Outfit', sans-serif; font-weight: 900; text-transform: uppercase; font-style: italic; }
+        .f1-glass { background: rgba(15, 15, 15, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(12px); }
         .f1-red { color: #e10600; }
         .f1-bg-red { background-color: #e10600; }
-        .drawer-slide { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .podium-pillar { transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .podium-pillar { transition: all 1s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     </style>
 </head>
 <body>
@@ -25,242 +24,240 @@
 
     <script type="text/babel">
         const { useState, useEffect } = React;
+
+        // Constants
         const SB_URL = "https://gyzflcxqehesojhimokd.supabase.co"; 
         const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5emZsY3hxZWhlc29qaGltb2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMzQ4MjcsImV4cCI6MjA4MzcxMDgyN30.fOW7qr9cNEUp6otJU2f-tXtOJxRX4Wge9R76OXE-_Tk";
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
         const TEAMS = {
-            redbull: { name: 'Red Bull Ford', color: '#3671C6' }, ferrari: { name: 'Ferrari', color: '#F91536' },
-            mclaren: { name: 'McLaren', color: '#FF8000' }, mercedes: { name: 'Mercedes', color: '#6CD3BF' },
-            aston: { name: 'Aston Honda', color: '#229971' }, audi: { name: 'Audi F1', color: '#f5f5f5' }, 
-            alpine: { name: 'Alpine', color: '#0093CC' }, haas: { name: 'Haas', color: '#B6BABD' },
-            williams: { name: 'Williams', color: '#64C4FF' }, rb: { name: 'Racing Bulls', color: '#6692FF' }
+            ferrari: { name: 'Ferrari', color: '#F91536' },
+            redbull: { name: 'Red Bull Ford', color: '#3671C6' },
+            mclaren: { name: 'McLaren', color: '#FF8000' },
+            mercedes: { name: 'Mercedes', color: '#6CD3BF' },
+            aston: { name: 'Aston Honda', color: '#229971' },
+            audi: { name: 'Audi F1', color: '#f5f5f5' }, 
+            williams: { name: 'Williams', color: '#64C4FF' },
+            alpine: { name: 'Alpine', color: '#0093CC' },
+            haas: { name: 'Haas', color: '#B6BABD' },
+            rb: { name: 'Racing Bulls', color: '#6692FF' }
         };
 
-        // Official 2026 Calendar - Corrected for IST Main Race Days
         const CALENDAR_2026 = [
             { name: "Australia", date: "2026-03-08" }, { name: "China", date: "2026-03-15" },
             { name: "Japan", date: "2026-03-29" }, { name: "Bahrain", date: "2026-04-12" },
             { name: "Saudi Arabia", date: "2026-04-19" }, { name: "Miami", date: "2026-05-03" },
             { name: "Canada", date: "2026-05-24" }, { name: "Monaco", date: "2026-06-07" },
-            { name: "Barcelona", date: "2026-06-14" }, { name: "Austria", date: "2026-06-28" },
-            { name: "Great Britain", date: "2026-07-05" }, { name: "Belgium", date: "2026-07-19" },
-            { name: "Hungary", date: "2026-07-26" }, { name: "Netherlands", date: "2026-08-23" },
-            { name: "Italy (Monza)", date: "2026-09-06" }, { name: "Spain (Madrid)", date: "2026-09-13" },
-            { name: "Azerbaijan", date: "2026-09-26" }, { name: "Singapore", date: "2026-10-11" },
-            { name: "USA (Austin)", date: "2026-10-25" }, { name: "Mexico", date: "2026-11-01" },
-            { name: "Brazil", date: "2026-11-08" }, { name: "Las Vegas", date: "2026-11-21" },
-            { name: "Qatar", date: "2026-11-29" }, { name: "Abu Dhabi", date: "2026-12-06" }
+            { name: "Spain (Madrid)", date: "2026-09-13" }, { name: "Abu Dhabi", date: "2026-12-06" }
         ];
+
+        // UI Components
+        function ProgressCircle({ completed, total }) {
+            const radius = 40;
+            const circum = 2 * Math.PI * radius;
+            const offset = circum - (completed / total) * circum;
+            return (
+                <div className="flex flex-col items-center">
+                    <svg width="100" height="100" className="transform -rotate-90">
+                        <circle cx="50" cy="50" r={radius} fill="transparent" stroke="#18181b" strokeWidth="8" />
+                        <circle cx="50" cy="50" r={radius} fill="transparent" stroke="#e10600" strokeWidth="8" 
+                            strokeDasharray={circum} strokeDashoffset={offset} strokeLinecap="round" />
+                    </svg>
+                    <div className="mt-[-60px] mb-[30px] f1-font text-lg italic">{completed}/{total}</div>
+                    <p className="text-[10px] opacity-40 f1-font">Season Progress</p>
+                </div>
+            );
+        }
 
         function App() {
             const [view, setView] = useState('landing');
             const [room, setRoom] = useState(null);
             const [participants, setParticipants] = useState([]);
-            const [isLocked, setIsLocked] = useState(false);
             const [roomInput, setRoomInput] = useState('');
-            const [newRoomName, setNewRoomName] = useState('');
-            const [userName, setUserName] = useState('');
-            const [userTeam, setUserTeam] = useState('redbull');
+            const [newName, setNewName] = useState('');
+            const [selectedTeam, setSelectedTeam] = useState('ferrari');
             const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-            const [history, setHistory] = useState(JSON.parse(localStorage.getItem('f1_history') || '[]'));
+            const [selectedRaceIdx, setSelectedRaceIdx] = useState(0);
 
-            const now = new Date();
-            const nextRace = CALENDAR_2026.find(r => new Date(r.date) >= now) || CALENDAR_2026[23];
-
-            const saveToHistory = (code, name) => {
-                const newHist = [{code, name}, ...history.filter(h => h.code !== code)].slice(0, 8);
-                setHistory(newHist);
-                localStorage.setItem('f1_history', JSON.stringify(newHist));
+            // Helpers
+            const getAccuracy = (p) => {
+                if (!p.predictions || p.predictions.length === 0) return 0;
+                const correct = p.predictions.filter(x => x.done).length;
+                return Math.round((correct / p.predictions.length) * 100);
             };
 
-            const permanentDelete = async (e, code) => {
-                e.stopPropagation();
-                if(!confirm(`PERMANENTLY DELETE ROOM ${code}?\nThis will erase all data from the database for everyone.`)) return;
-                
-                // 1. Delete from Supabase
-                const { error } = await sb.from('f1_rooms').delete().eq('code', code);
-                if (error) { alert("Error deleting room from DB"); return; }
+            const sortedParticipants = [...participants].sort((a, b) => {
+                const accA = getAccuracy(a);
+                const accB = getAccuracy(b);
+                if (accB !== accA) return accB - accA;
+                return a.name.localeCompare(b.name); // Tie breaker: Alphabetical
+            });
 
-                // 2. Remove from local history
-                const newHist = history.filter(h => h.code !== code);
-                setHistory(newHist);
-                localStorage.setItem('f1_history', JSON.stringify(newHist));
-                alert("Room permanently deleted.");
-            };
-
-            const getAcc = (p) => {
-                if (!p?.predictions || p.predictions.length === 0) return 0;
-                return Math.round((p.predictions.filter(x => x.done).length / p.predictions.length) * 100);
-            };
-
-            const updateDB = async (newList, lockState) => {
+            // Database Actions
+            const syncDB = async (newList) => {
                 setParticipants(newList);
-                setIsLocked(lockState);
-                await sb.from('f1_rooms').update({ data: { participants: newList, isLocked: lockState } }).eq('code', room.code);
+                if (room) {
+                    await sb.from('f1_rooms').update({ data: { participants: newList } }).eq('code', room.code);
+                }
             };
 
             const handleJoin = async (code) => {
                 const { data } = await sb.from('f1_rooms').select().eq('code', code.toUpperCase()).single();
-                if (data) { 
-                    setRoom(data); setParticipants(data.data.participants || []); setIsLocked(data.data.isLocked || false); 
-                    saveToHistory(data.code, data.name); setView('dashboard'); 
-                } else { alert("Room not found"); }
+                if (data) {
+                    setRoom(data);
+                    setParticipants(data.data.participants || []);
+                    setView('dashboard');
+                } else { alert("Room not found!"); }
             };
 
             const handleCreate = async () => {
-                if (!newRoomName) return;
+                const name = prompt("Enter Room Name:");
+                if (!name) return;
                 const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-                const { data } = await sb.from('f1_rooms').insert([{ code, name: newRoomName, data: { participants: [], isLocked: false } }]).select().single();
-                if (data) {
-                    setRoom(data); setParticipants([]); setIsLocked(false);
-                    saveToHistory(code, newRoomName); setView('dashboard');
-                }
+                const { data } = await sb.from('f1_rooms').insert([{ code, name, data: { participants: [] } }]).select().single();
+                if (data) handleJoin(code);
             };
 
+            // Views
             if (view === 'landing') return (
-                <div className="max-w-6xl mx-auto p-6 pt-12 min-h-screen flex flex-col">
-                    <h1 className="text-4xl font-black uppercase f1-font italic mb-12 tracking-tighter text-center">F1 <span className="f1-red">PADDOCK</span></h1>
-                    
-                    <div className="grid lg:grid-cols-3 gap-8 flex-1">
-                        <div className="space-y-6">
-                            <div className="f1-glass p-8 rounded-3xl">
-                                <h2 className="f1-font text-[10px] mb-6 opacity-50 uppercase tracking-widest">Join Grid</h2>
-                                <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-6 text-center outline-none font-bold uppercase" placeholder="CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
-                                <button onClick={() => handleJoin(roomInput)} className="w-full bg-zinc-800 p-4 rounded-xl font-black uppercase text-xs">Join</button>
+                <div className="min-h-screen flex flex-col items-center justify-center p-6 space-y-12">
+                    <div className="text-center">
+                        <h1 className="text-6xl f1-font italic tracking-tighter mb-2">F1 <span className="f1-red">PADDOCK</span></h1>
+                        <p className="text-xs opacity-40 font-bold tracking-[0.5em] uppercase">2026 Strategy Portal</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6 w-full max-w-4xl">
+                        <div className="f1-glass p-8 rounded-[2rem] flex flex-col justify-between h-64">
+                            <div>
+                                <h2 className="f1-font text-xs opacity-50 mb-4">Enter Grid</h2>
+                                <input className="w-full bg-transparent border-b-2 border-zinc-800 p-2 text-2xl font-black outline-none mb-4 uppercase" 
+                                    placeholder="CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
                             </div>
-                            <div className="f1-glass p-8 rounded-3xl">
-                                <h2 className="f1-font text-[10px] mb-6 opacity-50 uppercase tracking-widest">New Session</h2>
-                                <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-6 text-center outline-none font-bold uppercase" placeholder="NAME" value={newRoomName} onChange={e => setNewRoomName(e.target.value)} />
-                                <button onClick={handleCreate} className="w-full f1-bg-red p-4 rounded-xl font-black uppercase text-xs">Create Room</button>
-                            </div>
+                            <button onClick={() => handleJoin(roomInput)} className="f1-bg-red w-full py-4 rounded-xl f1-font text-sm italic">Join Session</button>
                         </div>
 
-                        <div className="f1-glass p-8 rounded-[2.5rem]">
-                            <h2 className="f1-font text-[10px] mb-8 opacity-50 uppercase tracking-widest italic">Recent Rooms</h2>
-                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                                {history.length === 0 && <p className="text-xs opacity-20 italic">No history yet...</p>}
-                                {history.map(h => (
-                                    <div key={h.code} onClick={() => handleJoin(h.code)} className="bg-white/5 p-5 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-white/10 transition group">
-                                        <div><p className="font-black italic uppercase text-sm group-hover:text-red-500 transition">{h.name}</p>
-                                        <p className="text-[10px] opacity-40 font-bold tracking-widest uppercase">{h.code}</p></div>
-                                        <button onClick={(e) => permanentDelete(e, h.code)} className="text-xs opacity-0 group-hover:opacity-40 hover:!opacity-100 px-3 py-2 text-red-500 font-bold">DELETE</button>
-                                    </div>
-                                ))}
-                            </div>
+                        <div className="f1-glass p-8 rounded-[2rem] flex flex-col justify-center items-center h-64 border-dashed border-2 border-white/10">
+                            <button onClick={handleCreate} className="hover:scale-105 transition-transform">
+                                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">➕</div>
+                                <p className="f1-font text-xs opacity-50">Create New Room</p>
+                            </button>
                         </div>
+                    </div>
 
-                        <div className="f1-glass p-8 rounded-[2.5rem] text-center flex flex-col justify-center">
-                            <h2 className="f1-font text-[10px] mb-2 opacity-50 uppercase tracking-widest italic">Upcoming Race (IST)</h2>
-                            <p className="text-5xl font-black f1-font f1-red italic tracking-tighter uppercase mb-2 leading-none">{nextRace.name}</p>
-                            <p className="text-xs font-black opacity-40 tracking-[0.3em] uppercase">{new Date(nextRace.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                    <div className="f1-glass p-8 rounded-[3rem] w-full max-w-4xl flex items-center justify-between">
+                        <div className="flex-1">
+                            <h3 className="f1-font text-xs opacity-40 mb-2 tracking-widest">Next Race</h3>
+                            <select className="bg-transparent f1-font text-xl outline-none" onChange={e => setSelectedRaceIdx(parseInt(e.target.value))}>
+                                {CALENDAR_2026.map((r, i) => <option key={i} value={i} className="bg-black">{r.name}</option>)}
+                            </select>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-4xl f1-font f1-red italic">{Math.max(0, Math.ceil((new Date(CALENDAR_2026[selectedRaceIdx].date) - new Date()) / (1000*60*60*24)))}</p>
+                            <p className="text-[10px] font-bold opacity-30">DAYS TO LIGHTS OUT</p>
                         </div>
                     </div>
                 </div>
             );
 
             if (view === 'dashboard') {
-                const sorted = [...participants].sort((a, b) => getAcc(b) - getAcc(a));
-                const p1 = sorted[0], p2 = sorted[1], p3 = sorted[2];
+                const [p1, p2, p3, p4] = sortedParticipants;
+                const completed = CALENDAR_2026.filter(r => new Date(r.date) < new Date()).length;
 
                 return (
-                    <div className="max-w-5xl mx-auto p-6 pt-10">
-                        {/* THE CLEANER ADD PARTICIPANT DRAWER */}
-                        <div className={`fixed top-0 right-0 h-full w-80 f1-glass border-l border-zinc-800 z-50 p-8 drawer-slide ${isDrawerOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full'}`}>
-                            <div className="flex justify-between items-center mb-10">
-                                <h3 className="f1-font text-xs uppercase italic tracking-widest">New Strategist</h3>
-                                <button onClick={() => setIsDrawerOpen(false)} className="text-xl opacity-40 hover:opacity-100">✕</button>
+                    <div className="max-w-6xl mx-auto p-6 pt-10">
+                        {/* Header */}
+                        <div className="flex justify-between items-center mb-12">
+                            <div className="flex items-center gap-6">
+                                <button onClick={() => setView('landing')} className="text-[10px] f1-font opacity-30 hover:opacity-100 transition">← EXIT</button>
+                                <h2 className="f1-font text-2xl tracking-tighter italic">🏁 {room.name}</h2>
                             </div>
-                            <div className="space-y-6">
-                                <div>
-                                    <label className="text-[9px] font-black opacity-40 uppercase tracking-widest mb-2 block">Name</label>
-                                    <input className="w-full bg-zinc-900 p-4 rounded-xl text-xs font-bold uppercase outline-none focus:ring-1 ring-red-500" placeholder="E.G. MAX" value={userName} onChange={e => setUserName(e.target.value)} />
+                            <div className="flex gap-3">
+                                <button onClick={() => { navigator.clipboard.writeText(room.code); alert("Code Copied!"); }} 
+                                    className="px-4 py-2 rounded-lg bg-zinc-900 border border-white/5 text-[10px] f1-font">COPY CODE: {room.code}</button>
+                                <button onClick={() => setIsDrawerOpen(true)} className="f1-bg-red px-6 py-2 rounded-lg text-[10px] f1-font italic">➕ ADD USER</button>
+                            </div>
+                        </div>
+
+                        {/* Top Section: Podium & Progress */}
+                        <div className="grid lg:grid-cols-3 gap-8 mb-12">
+                            <div className="lg:col-span-2 f1-glass rounded-[3rem] p-10 flex items-end justify-center gap-6 h-[400px]">
+                                {/* P2 */}
+                                <div className="flex-1 text-center">
+                                    <p className="text-[10px] f1-font mb-2 opacity-50">{p2?.name || 'TBA'}</p>
+                                    <div className="podium-pillar rounded-t-2xl" style={{ height: p2 ? '150px' : '20px', background: p2 ? TEAMS[p2.team]?.color : '#111' }}>
+                                        <span className="f1-font text-4xl opacity-20 italic">2</span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="text-[9px] font-black opacity-40 uppercase tracking-widest mb-2 block">Constructor</label>
-                                    <select className="w-full bg-zinc-900 p-4 rounded-xl text-xs font-bold uppercase text-white outline-none" value={userTeam} onChange={e => setUserTeam(e.target.value)}>
+                                {/* P1 */}
+                                <div className="flex-1 text-center">
+                                    <p className="f1-font text-sm mb-2">{p1?.name || 'TBA'}</p>
+                                    <div className="podium-pillar rounded-t-2xl border-t-4 border-white/20 shadow-[0_-20px_50px_rgba(225,6,0,0.2)]" 
+                                        style={{ height: p1 ? '220px' : '20px', background: p1 ? TEAMS[p1.team]?.color : '#222' }}>
+                                        <span className="f1-font text-6xl opacity-30 italic">1</span>
+                                    </div>
+                                </div>
+                                {/* P3 */}
+                                <div className="flex-1 text-center">
+                                    <p className="text-[10px] f1-font mb-2 opacity-50">{p3?.name || 'TBA'}</p>
+                                    <div className="podium-pillar rounded-t-2xl" style={{ height: p3 ? '100px' : '20px', background: p3 ? TEAMS[p3.team]?.color : '#0a0a0a' }}>
+                                        <span className="f1-font text-2xl opacity-10 italic">3</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="f1-glass rounded-[3rem] flex items-center justify-center p-8">
+                                <ProgressCircle completed={completed} total={CALENDAR_2026.length} />
+                            </div>
+                        </div>
+
+                        {/* Participant Grid */}
+                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {sortedParticipants.map((p, idx) => (
+                                <div key={p.id} className="f1-glass p-6 rounded-[2rem] border-l-4 relative group" style={{ borderColor: TEAMS[p.team]?.color }}>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <p className="text-[8px] f1-font opacity-40">{TEAMS[p.team].name}</p>
+                                        <p className="f1-font f1-red italic text-xl">{getAccuracy(p)}%</p>
+                                    </div>
+                                    <h4 className="f1-font text-lg tracking-tight mb-4">{p.name}</h4>
+                                    <button onClick={() => {
+                                        // Simple prediction adder for basics
+                                        const txt = prompt("Enter Prediction:");
+                                        if(!txt) return;
+                                        const updated = participants.map(u => u.id === p.id ? {...u, predictions: [...(u.predictions||[]), {id: Date.now(), text: txt, done: false}]} : u);
+                                        syncDB(updated);
+                                    }} className="w-full py-2 bg-white/5 rounded-lg text-[9px] f1-font hover:bg-white/10 transition">Manage Predictions</button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Add User Drawer */}
+                        {isDrawerOpen && (
+                            <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
+                                <div className="f1-glass max-w-sm w-full p-10 rounded-[2.5rem] border-red-600/30 border-2">
+                                    <h2 className="f1-font text-xl italic mb-8">Sign Strategist</h2>
+                                    
+                                    <label className="text-[10px] f1-font opacity-40 block mb-2 uppercase tracking-widest">Name</label>
+                                    <input className="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl mb-6 outline-none f1-font italic text-sm" 
+                                        placeholder="PILOT NAME" value={newName} onChange={e => setNewName(e.target.value)} />
+
+                                    <label className="text-[10px] f1-font opacity-40 block mb-2 uppercase tracking-widest">Constructors Team</label>
+                                    <select className="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl mb-8 outline-none text-xs font-bold uppercase"
+                                        value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)}>
                                         {Object.entries(TEAMS).map(([id, t]) => <option key={id} value={id}>{t.name}</option>)}
                                     </select>
-                                </div>
-                                <button onClick={() => { if(userName) updateDB([...participants, {id: Date.now(), name: userName, color: userTeam, predictions: []}], isLocked); setUserName(''); setIsDrawerOpen(false); }} className="w-full f1-bg-red p-5 rounded-xl font-black uppercase text-[10px] mt-4">Add to Grid</button>
-                            </div>
-                        </div>
 
-                        <header className="flex justify-between items-center mb-8">
-                            <div className="flex items-center gap-6">
-                                <button onClick={() => setView('landing')} className="text-[10px] font-black opacity-30 hover:opacity-100 uppercase tracking-widest transition">← EXIT</button>
-                                <h2 className="f1-font text-sm uppercase italic tracking-tighter">{room.name}</h2>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                {!isLocked && (
-                                    <button onClick={() => setIsDrawerOpen(true)} className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center hover:bg-zinc-700 transition shadow-lg border border-white/5">＋</button>
-                                )}
-                                <button onClick={() => updateDB(participants, !isLocked)} className={`px-5 py-2 rounded-full text-[9px] font-black tracking-[0.2em] uppercase ${isLocked ? 'bg-zinc-800 text-green-500' : 'bg-red-600 text-white'}`}>{isLocked ? '🔓 UNLOCKED' : '🔒 LOCK GRID'}</button>
-                            </div>
-                        </header>
-
-                        {/* PODIUM SECTION */}
-                        <div className="f1-glass rounded-[2.5rem] p-8 flex items-end justify-center gap-4 h-[300px] mb-10 relative">
-                             <div className="flex-1 text-center">
-                                <p className="text-[9px] font-black mb-2 uppercase opacity-60 italic">{p2?.name || '-'}</p>
-                                <div className="podium-pillar rounded-t-2xl flex items-center justify-center text-4xl font-black italic text-black/20" style={{ height: p2 ? '140px' : '30px', background: p2 ? TEAMS[p2.color].color : '#111' }}>2</div>
-                            </div>
-                            <div className="flex-1 text-center">
-                                <p className="text-xs font-black mb-2 uppercase italic">{p1?.name || '-'}</p>
-                                <div className="podium-pillar rounded-t-2xl border-t-4 border-white/20 flex items-center justify-center text-6xl font-black italic text-black/30" style={{ height: p1 ? '200px' : '30px', background: p1 ? TEAMS[p1.color].color : '#222' }}>1</div>
-                            </div>
-                            <div className="flex-1 text-center">
-                                <p className="text-[9px] font-black mb-2 uppercase opacity-60 italic">{p3?.name || '-'}</p>
-                                <div className="podium-pillar rounded-t-2xl flex items-center justify-center text-3xl font-black italic text-black/20" style={{ height: p3 ? '90px' : '30px', background: p3 ? TEAMS[p3.color].color : '#0a0a0a' }}>3</div>
-                            </div>
-                        </div>
-
-                        {/* LEADERBOARD GRID */}
-                        <div className="grid md:grid-cols-3 gap-6">
-                            {participants.map(p => (
-                                <div key={p.id} onClick={() => { setRoom(r => ({...r, activeUser: p})); setView('predictions'); }} className="f1-glass p-6 rounded-3xl border-l-4 relative group hover:bg-white/5 transition border border-zinc-900 cursor-pointer" style={{borderLeftColor: TEAMS[p.color].color}}>
-                                    <button onClick={(e) => { e.stopPropagation(); updateDB(participants.filter(x => x.id !== p.id), isLocked); }} className="absolute top-4 right-4 text-zinc-800 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">✕</button>
-                                    <p className="text-[8px] font-black opacity-40 uppercase mb-1">{TEAMS[p.color].name}</p>
-                                    <h4 className="text-xl font-black italic uppercase mb-4 tracking-tight">{p.name}</h4>
-                                    <div className="flex justify-between items-center bg-black/40 p-4 rounded-2xl">
-                                        <span className="text-[9px] font-bold opacity-30 uppercase tracking-widest italic">Accuracy</span>
-                                        <span className="font-black f1-red text-xl italic">{getAcc(p)}%</span>
+                                    <div className="flex gap-4">
+                                        <button onClick={() => setIsDrawerOpen(false)} className="flex-1 py-4 text-xs font-bold opacity-40">CANCEL</button>
+                                        <button onClick={() => {
+                                            if(!newName) return;
+                                            syncDB([...participants, { id: Date.now(), name: newName, team: selectedTeam, predictions: [] }]);
+                                            setNewName('');
+                                            setIsDrawerOpen(false);
+                                        }} className="flex-1 f1-bg-red py-4 rounded-xl f1-font text-xs italic">CONFIRM</button>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-            }
-
-            if (view === 'predictions') {
-                const activeUser = room.activeUser;
-                const [pInput, setPInput] = useState('');
-                return (
-                    <div className="max-w-xl mx-auto p-6 pt-12">
-                        <button onClick={() => setView('dashboard')} className="mb-10 text-[10px] font-black opacity-30 uppercase tracking-widest hover:opacity-100 transition italic">← BACK TO GRID</button>
-                        <div className="mb-12 border-l-8 p-8 bg-white/5 rounded-r-3xl flex justify-between items-end border-zinc-800" style={{borderColor: TEAMS[activeUser.color].color}}>
-                            <div><h1 className="text-5xl font-black italic uppercase leading-none f1-font tracking-tighter">{activeUser.name}</h1>
-                            <p className="text-[10px] opacity-40 font-black mt-4 tracking-[0.4em] uppercase italic">{TEAMS[activeUser.color].name}</p></div>
-                            <p className="text-5xl font-black f1-red italic">{getAcc(activeUser)}%</p>
-                        </div>
-                        {!isLocked && (
-                            <div className="flex gap-2 mb-10">
-                                <input className="flex-1 bg-zinc-900 border border-zinc-800 p-4 rounded-xl outline-none font-bold text-xs uppercase" placeholder="ADD PREDICTION..." value={pInput} onChange={e => setPInput(e.target.value)} />
-                                <button onClick={() => { if(!pInput) return; const nl = participants.map(u => u.id === activeUser.id ? {...u, predictions: [...u.predictions, {id: Date.now(), text: pInput, done: false}]} : u); updateDB(nl, isLocked); setRoom({...room, activeUser: nl.find(x => x.id === activeUser.id)}); setPInput(''); }} className="f1-bg-red px-8 rounded-xl font-black text-[10px]">ADD</button>
                             </div>
                         )}
-                        <div className="space-y-3">
-                            {activeUser.predictions.map(pr => (
-                                <div key={pr.id} className="f1-glass p-5 rounded-2xl flex items-center justify-between">
-                                    <div className="flex items-center gap-6 cursor-pointer flex-1" onClick={() => { const nl = participants.map(u => u.id === activeUser.id ? {...u, predictions: u.predictions.map(x => x.id === pr.id ? {...x, done: !x.done} : x)} : u); updateDB(nl, isLocked); setRoom({...room, activeUser: nl.find(x => x.id === activeUser.id)}); }}>
-                                        <div className={`w-6 h-6 rounded flex items-center justify-center border-2 ${pr.done ? 'bg-green-500 border-green-500' : 'border-zinc-700'}`}>{pr.done && <span className="text-black font-black text-xs">✓</span>}</div>
-                                        <span className={`text-sm font-black italic uppercase ${pr.done ? 'opacity-20 line-through' : ''}`}>{pr.text}</span>
-                                    </div>
-                                    <button onClick={() => { const nl = participants.map(u => u.id === activeUser.id ? {...u, predictions: u.predictions.filter(x => x.id !== pr.id)} : u); updateDB(nl, isLocked); setRoom({...room, activeUser: nl.find(x => x.id === activeUser.id)}); }} className="text-red-500 opacity-30 hover:opacity-100">✕</button>
-                                </div>
-                            ))}
-                        </div>
                     </div>
                 );
             }
