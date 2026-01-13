@@ -30,7 +30,7 @@
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
         const TEAMS = {
-            redbull: { name: 'Red Bull', color: '#3671C6' }, ferrari: { name: 'Ferrari', color: '#F91536' },
+            redbull: { name: 'Red Bull Ford', color: '#3671C6' }, ferrari: { name: 'Ferrari', color: '#F91536' },
             mclaren: { name: 'McLaren', color: '#FF8000' }, mercedes: { name: 'Mercedes', color: '#6CD3BF' },
             aston: { name: 'Aston Honda', color: '#229971' }, audi: { name: 'Audi F1', color: '#f5f5f5' }, 
             alpine: { name: 'Alpine', color: '#0093CC' }, haas: { name: 'Haas', color: '#B6BABD' },
@@ -54,18 +54,18 @@
         ];
 
         function CircularProgress({ value, max }) {
-            const radius = 60; const dash = 2 * Math.PI * radius;
+            const radius = 50; const dash = 2 * Math.PI * radius;
             const offset = dash - (value / max) * dash;
             return (
                 <div className="relative flex items-center justify-center">
-                    <svg width="140" height="140">
-                        <circle cx="70" cy="70" r={radius} stroke="#1f1f1f" strokeWidth="8" fill="transparent" />
-                        <circle cx="70" cy="70" r={radius} stroke="#e10600" strokeWidth="8" fill="transparent"
+                    <svg width="120" height="120">
+                        <circle cx="60" cy="60" r={radius} stroke="#1f1f1f" strokeWidth="6" fill="transparent" />
+                        <circle cx="60" cy="60" r={radius} stroke="#e10600" strokeWidth="6" fill="transparent"
                                 strokeDasharray={dash} strokeDashoffset={offset} strokeLinecap="round" className="progress-ring__circle" />
                     </svg>
                     <div className="absolute text-center">
-                        <span className="block text-3xl font-black f1-font leading-none">{value}</span>
-                        <span className="text-[8px] opacity-40 uppercase font-black tracking-widest">of {max} races</span>
+                        <span className="block text-2xl font-black f1-font leading-none">{value}</span>
+                        <span className="text-[7px] opacity-40 uppercase font-black tracking-widest">Races</span>
                     </div>
                 </div>
             );
@@ -103,9 +103,9 @@
 
             if (view === 'landing') return (
                 <div className="flex flex-col items-center justify-center min-h-screen p-6">
-                    <h1 className="text-4xl font-black uppercase f1-font italic mb-10">🏎🏁F1 <span className="f1-red">PREDICTIONS</span></h1>
+                    <h1 className="text-4xl font-black uppercase f1-font italic mb-10 tracking-tighter">F1 <span className="f1-red">PREDICTIONS</span></h1>
                     <div className="f1-glass p-8 rounded-3xl w-full max-w-sm border border-zinc-800 shadow-2xl mb-8">
-                        <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-8 text-center outline-none font-bold uppercase text-white" placeholder="CREATE ROOM OR ENTER ROOM CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
+                        <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-8 text-center outline-none font-bold uppercase text-white" placeholder="ENTER ROOM CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
                         <button onClick={() => handleJoin(roomInput)} className="w-full f1-bg-red p-4 rounded-xl font-black uppercase text-sm">Join Paddock</button>
                     </div>
                     <div className="w-full max-w-sm space-y-2">
@@ -117,63 +117,66 @@
 
             if (view === 'dashboard') {
                 const sorted = [...participants].sort((a, b) => getAcc(b) - getAcc(a));
-                const p1 = sorted[0]; const p2 = sorted[1]; const p3 = sorted[2]; const p4 = sorted[3];
-                const isThirdTie = p3 && p4 && getAcc(p3) === getAcc(p4) && getAcc(p3) > 0;
+                const p1 = sorted[0]; 
+                const p2 = sorted[1]; 
+                const p3 = sorted[2]; 
+                const p4 = sorted[3];
+
+                // FIX: Check if 2nd and 3rd are tied.
+                const isSecondThirdTie = p2 && p3 && getAcc(p2) === getAcc(p3) && getAcc(p2) > 0;
 
                 return (
-                    <div className="max-w-6xl mx-auto p-6 pt-10">
-                        <header className="flex justify-between items-center mb-10">
+                    <div className="max-w-5xl mx-auto p-6 pt-10">
+                        <header className="flex justify-between items-center mb-6">
                             <div className="flex items-center gap-2 font-black uppercase tracking-widest text-xs italic">🏁 {room.name}</div>
                             <div className="flex gap-4">
-                                <button onClick={() => setView('landing')} className="text-[10px] font-black opacity-30 hover:opacity-100">EXIT</button>
-                                <button onClick={() => updateDB(participants, !isLocked)} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${isLocked ? 'bg-zinc-800 text-green-500' : 'bg-red-600 text-white animate-pulse'}`}>
+                                <button onClick={() => setView('landing')} className="text-[10px] font-black opacity-30 hover:opacity-100 uppercase">EXIT</button>
+                                <button onClick={() => updateDB(participants, !isLocked)} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${isLocked ? 'bg-zinc-800 text-green-500' : 'bg-red-600 text-white'}`}>
                                     {isLocked ? '🔓 UNLOCKED' : '🔒 LOCK GRID'}
                                 </button>
                             </div>
                         </header>
 
-                        <div className="grid lg:grid-cols-4 gap-6 mb-12">
-                            {/* PODIUM SECTION */}
-                            <div className="lg:col-span-3 f1-glass rounded-[3rem] p-10 flex items-end justify-center gap-4 h-[450px] relative shadow-2xl overflow-hidden">
-                                <div className="absolute top-8 left-10 text-[10px] font-black opacity-20 tracking-[0.6em] uppercase">Grid Leaders</div>
+                        <div className="grid lg:grid-cols-4 gap-4 mb-10">
+                            {/* COMPACT PODIUM SECTION */}
+                            <div className="lg:col-span-3 f1-glass rounded-[2.5rem] p-8 flex items-end justify-center gap-4 h-[320px] relative shadow-2xl overflow-hidden">
+                                <div className="absolute top-6 left-8 text-[9px] font-black opacity-20 tracking-[0.5em] uppercase">Grid Leaders</div>
                                 
-                                {/* 2nd Place */}
+                                {/* Position 2 (Left) */}
                                 <div className="flex-1 text-center">
-                                    <p className="text-[10px] font-black mb-3 uppercase opacity-60 italic">{p2?.name || '-'}</p>
-                                    <div className="podium-pillar rounded-t-3xl flex items-center justify-center text-5xl font-black italic text-black/20" 
-                                         style={{ height: p2 ? '180px' : '40px', background: p2 ? TEAMS[p2.color].color : '#111' }}>2</div>
+                                    <p className="text-[9px] font-black mb-2 uppercase opacity-60 italic truncate">{p2?.name || '-'}</p>
+                                    <div className="podium-pillar rounded-t-2xl flex items-center justify-center text-4xl font-black italic text-black/20" 
+                                         style={{ height: p2 ? '120px' : '30px', background: p2 ? TEAMS[p2.color].color : '#111' }}>2</div>
                                 </div>
 
-                                {/* 1st Place */}
+                                {/* Position 1 (Center) */}
                                 <div className="flex-1 text-center">
-                                    <p className="text-xs font-black mb-3 uppercase italic">{p1?.name || '-'}</p>
-                                    <div className="podium-pillar rounded-t-3xl border-t-4 border-white/20 flex items-center justify-center text-8xl font-black italic text-black/30 shadow-[0_40px_80px_rgba(225,6,0,0.4)]" 
-                                         style={{ height: p1 ? '280px' : '40px', background: p1 ? TEAMS[p1.color].color : '#222' }}>1</div>
+                                    <p className="text-xs font-black mb-2 uppercase italic truncate">{p1?.name || '-'}</p>
+                                    <div className="podium-pillar rounded-t-2xl border-t-4 border-white/20 flex items-center justify-center text-6xl font-black italic text-black/30 shadow-[0_20px_40px_rgba(225,6,0,0.3)]" 
+                                         style={{ height: p1 ? '200px' : '30px', background: p1 ? TEAMS[p1.color].color : '#222' }}>1</div>
                                 </div>
 
-                                {/* 3rd Place / Tie */}
+                                {/* Position 3 / Tie (Right) */}
                                 <div className="flex-1 text-center">
-                                    <div className="flex justify-center gap-1 mb-3">
-                                        <p className="text-[10px] font-black uppercase opacity-60 italic">{p3?.name || '-'}</p>
-                                        {isThirdTie && <p className="text-[10px] font-black uppercase opacity-60 italic">/ {p4.name}</p>}
+                                    <div className="flex flex-col items-center mb-2">
+                                        <p className="text-[9px] font-black uppercase opacity-60 italic truncate w-full">{p3?.name || '-'}</p>
+                                        {isSecondThirdTie && <p className="text-[7px] font-black uppercase opacity-40 italic mt-0.5">Tied with P2</p>}
                                     </div>
-                                    <div className="podium-pillar rounded-t-3xl flex flex-col items-center justify-center text-4xl font-black italic text-black/20" 
+                                    <div className="podium-pillar rounded-t-2xl flex flex-col items-center justify-center text-3xl font-black italic text-black/20" 
                                          style={{ 
-                                            height: p3 ? '130px' : '40px', 
-                                            background: isThirdTie 
-                                                ? `linear-gradient(90deg, ${TEAMS[p3.color].color} 50%, ${TEAMS[p4.color].color} 50%)` 
-                                                : (p3 ? TEAMS[p3.color].color : '#0a0a0a') 
+                                            height: p3 ? (isSecondThirdTie ? '120px' : '80px') : '30px', 
+                                            background: p3 ? TEAMS[p3.color].color : '#0a0a0a'
                                          }}>
-                                        3 {isThirdTie && <span className="text-[8px] block tracking-tighter mt-1">TIE</span>}
+                                        {isSecondThirdTie ? 2 : 3}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* CIRCULAR PROGRESS SECTION */}
-                            <div className="f1-glass rounded-[3rem] p-10 flex flex-col items-center justify-center text-center shadow-2xl">
+                            {/* COMPACT CIRCULAR PROGRESS */}
+                            <div className="f1-glass rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center shadow-2xl">
                                 <CircularProgress value={currentRound} max={24} />
-                                <p className="mt-6 text-[10px] font-black uppercase tracking-widest opacity-40 leading-relaxed">
-                                    Track progress through the <br/> 2026 Formula 1 Season
+                                <p className="mt-4 text-[8px] font-black uppercase tracking-widest opacity-40 leading-relaxed">
+                                    2026 SEASON <br/> TIMELINE
                                 </p>
                             </div>
                         </div>
@@ -211,7 +214,7 @@
                     <button onClick={() => setView('dashboard')} className="mb-10 text-[10px] font-black opacity-30 uppercase tracking-widest hover:opacity-100 transition">← Back to Paddock</button>
                     <div className="mb-12 border-l-8 p-8 bg-white/5 rounded-r-3xl flex justify-between items-end" style={{borderColor: TEAMS[activeUser.color].color}}>
                         <div>
-                            <h1 className="text-5xl font-black italic uppercase f1-font leading-none">{activeUser.name}</h1>
+                            <h1 className="text-5xl font-black italic uppercase leading-none">{activeUser.name}</h1>
                             <p className="text-[10px] opacity-40 font-black mt-4 tracking-[0.4em] uppercase">{TEAMS[activeUser.color].name}</p>
                         </div>
                         <p className="text-5xl font-black f1-red italic">{getAcc(activeUser)}%</p>
