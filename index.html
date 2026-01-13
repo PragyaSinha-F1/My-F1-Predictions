@@ -3,20 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F1 Paddock 2026 | IST</title>
+    <title>F1 Paddock 2026</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;900&display=swap');
-        body { background-color: #050505; color: #e4e4e7; font-family: 'Inter', sans-serif; }
-        .f1-font { font-family: 'Outfit', sans-serif; font-weight: 900; text-transform: uppercase; font-style: italic; }
-        .f1-glass { background: rgba(15, 15, 15, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(12px); }
-        .f1-red { color: #e10600; }
-        .f1-bg-red { background-color: #e10600; }
-        .podium-pillar { transition: all 1s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @import url('https://fonts.cdnfonts.com/css/formula1');
+        body { background-color: black; color: white; font-family: 'Formula1 Display', sans-serif; }
+        .f1-italic { font-family: 'Formula1 Display', sans-serif; font-weight: 900; }
+        .f1-glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .f1-gradient { background: linear-gradient(90deg, #e10600 0%, #ff3b3b 100%); }
     </style>
 </head>
 <body>
@@ -24,243 +22,212 @@
 
     <script type="text/babel">
         const { useState, useEffect } = React;
-
-        // Constants
-        const SB_URL = "https://gyzflcxqehesojhimokd.supabase.co"; 
-        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5emZsY3hxZWhlc29qaGltb2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMzQ4MjcsImV4cCI6MjA4MzcxMDgyN30.fOW7qr9cNEUp6otJU2f-tXtOJxRX4Wge9R76OXE-_Tk";
+        
+        // UPDATE THESE WITH YOUR ACTUAL SUPABASE KEYS
+        const SB_URL = "https://your-project.supabase.co";
+        const SB_KEY = "your-anon-key";
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        const TEAMS = {
+        const TEAM_CONFIG = {
+            redbull: { name: 'Red Bull', color: '#3671C6' },
             ferrari: { name: 'Ferrari', color: '#F91536' },
-            redbull: { name: 'Red Bull Ford', color: '#3671C6' },
             mclaren: { name: 'McLaren', color: '#FF8000' },
             mercedes: { name: 'Mercedes', color: '#6CD3BF' },
-            aston: { name: 'Aston Honda', color: '#229971' },
-            audi: { name: 'Audi F1', color: '#f5f5f5' }, 
-            williams: { name: 'Williams', color: '#64C4FF' },
+            aston: { name: 'Aston Martin', color: '#229971' },
+            audi: { name: 'Audi F1', color: '#000000' }, 
             alpine: { name: 'Alpine', color: '#0093CC' },
             haas: { name: 'Haas', color: '#B6BABD' },
-            rb: { name: 'Racing Bulls', color: '#6692FF' }
+            williams: { name: 'Williams', color: '#64C4FF' },
+            rb: { name: 'Racing Bulls', color: '#6692FF' },
+            andretti: { name: 'Andretti', color: '#FFFFFF' }
         };
-
-        const CALENDAR_2026 = [
-            { name: "Australia", date: "2026-03-08" }, { name: "China", date: "2026-03-15" },
-            { name: "Japan", date: "2026-03-29" }, { name: "Bahrain", date: "2026-04-12" },
-            { name: "Saudi Arabia", date: "2026-04-19" }, { name: "Miami", date: "2026-05-03" },
-            { name: "Canada", date: "2026-05-24" }, { name: "Monaco", date: "2026-06-07" },
-            { name: "Spain (Madrid)", date: "2026-09-13" }, { name: "Abu Dhabi", date: "2026-12-06" }
-        ];
-
-        // UI Components
-        function ProgressCircle({ completed, total }) {
-            const radius = 40;
-            const circum = 2 * Math.PI * radius;
-            const offset = circum - (completed / total) * circum;
-            return (
-                <div className="flex flex-col items-center">
-                    <svg width="100" height="100" className="transform -rotate-90">
-                        <circle cx="50" cy="50" r={radius} fill="transparent" stroke="#18181b" strokeWidth="8" />
-                        <circle cx="50" cy="50" r={radius} fill="transparent" stroke="#e10600" strokeWidth="8" 
-                            strokeDasharray={circum} strokeDashoffset={offset} strokeLinecap="round" />
-                    </svg>
-                    <div className="mt-[-60px] mb-[30px] f1-font text-lg italic">{completed}/{total}</div>
-                    <p className="text-[10px] opacity-40 f1-font">Season Progress</p>
-                </div>
-            );
-        }
 
         function App() {
             const [view, setView] = useState('landing');
             const [room, setRoom] = useState(null);
             const [participants, setParticipants] = useState([]);
-            const [roomInput, setRoomInput] = useState('');
-            const [newName, setNewName] = useState('');
-            const [selectedTeam, setSelectedTeam] = useState('ferrari');
-            const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-            const [selectedRaceIdx, setSelectedRaceIdx] = useState(0);
+            const [activeUser, setActiveUser] = useState(null);
+            const [myRooms, setMyRooms] = useState([]);
+            const [inputRoom, setInputRoom] = useState('');
+            const [inputUser, setInputUser] = useState('');
+            const [inputPred, setInputPred] = useState('');
+            const [selectedColor, setSelectedColor] = useState('redbull');
 
-            // Helpers
+            useEffect(() => {
+                const saved = localStorage.getItem('f1_paddock_history');
+                if (saved) setMyRooms(JSON.parse(saved));
+            }, []);
+
             const getAccuracy = (p) => {
-                if (!p.predictions || p.predictions.length === 0) return 0;
+                if (!p || !p.predictions || p.predictions.length === 0) return 0;
                 const correct = p.predictions.filter(x => x.done).length;
                 return Math.round((correct / p.predictions.length) * 100);
             };
 
-            const sortedParticipants = [...participants].sort((a, b) => {
-                const accA = getAccuracy(a);
-                const accB = getAccuracy(b);
-                if (accB !== accA) return accB - accA;
-                return a.name.localeCompare(b.name); // Tie breaker: Alphabetical
-            });
-
-            // Database Actions
-            const syncDB = async (newList) => {
-                setParticipants(newList);
-                if (room) {
-                    await sb.from('f1_rooms').update({ data: { participants: newList } }).eq('code', room.code);
+            const handleCreate = async () => {
+                const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+                const roomName = inputRoom || "2026 Championship";
+                const { data } = await sb.from('f1_rooms').insert([{ code, name: roomName, data: { participants: [] } }]).select();
+                if (data) {
+                    setRoom(data[0]);
+                    const history = [{code, name: roomName, isOwner: true}, ...myRooms];
+                    setMyRooms(history);
+                    localStorage.setItem('f1_paddock_history', JSON.stringify(history));
+                    setView('dashboard');
                 }
             };
 
-            const handleJoin = async (code) => {
-                const { data } = await sb.from('f1_rooms').select().eq('code', code.toUpperCase()).single();
+            const handleJoin = async (targetCode = null) => {
+                const code = targetCode || inputRoom.toUpperCase();
+                const { data } = await sb.from('f1_rooms').select().eq('code', code).single();
                 if (data) {
                     setRoom(data);
                     setParticipants(data.data.participants || []);
                     setView('dashboard');
-                } else { alert("Room not found!"); }
+                }
             };
 
-            const handleCreate = async () => {
-                const name = prompt("Enter Room Name:");
-                if (!name) return;
-                const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-                const { data } = await sb.from('f1_rooms').insert([{ code, name, data: { participants: [] } }]).select().single();
-                if (data) handleJoin(code);
+            const deleteRoom = (e, code) => {
+                e.stopPropagation();
+                if(confirm("Delete this room?")) {
+                    const filtered = myRooms.filter(r => r.code !== code);
+                    setMyRooms(filtered);
+                    localStorage.setItem('f1_paddock_history', JSON.stringify(filtered));
+                }
             };
 
-            // Views
+            const sync = async (newList) => {
+                setParticipants(newList);
+                await sb.from('f1_rooms').update({ data: { participants: newList } }).eq('code', room.code);
+            };
+
+            const addPlayer = () => {
+                if (!inputUser) return;
+                const newList = [...participants, { id: Date.now(), name: inputUser, color: selectedColor, predictions: [] }];
+                sync(newList);
+                setInputUser('');
+            };
+
             if (view === 'landing') return (
-                <div className="min-h-screen flex flex-col items-center justify-center p-6 space-y-12">
-                    <div className="text-center">
-                        <h1 className="text-6xl f1-font italic tracking-tighter mb-2">F1 <span className="f1-red">PADDOCK</span></h1>
-                        <p className="text-xs opacity-40 font-bold tracking-[0.5em] uppercase">2026 Strategy Portal</p>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-6 w-full max-w-4xl">
-                        <div className="f1-glass p-8 rounded-[2rem] flex flex-col justify-between h-64">
-                            <div>
-                                <h2 className="f1-font text-xs opacity-50 mb-4">Enter Grid</h2>
-                                <input className="w-full bg-transparent border-b-2 border-zinc-800 p-2 text-2xl font-black outline-none mb-4 uppercase" 
-                                    placeholder="CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
-                            </div>
-                            <button onClick={() => handleJoin(roomInput)} className="f1-bg-red w-full py-4 rounded-xl f1-font text-sm italic">Join Session</button>
-                        </div>
-
-                        <div className="f1-glass p-8 rounded-[2rem] flex flex-col justify-center items-center h-64 border-dashed border-2 border-white/10">
-                            <button onClick={handleCreate} className="hover:scale-105 transition-transform">
-                                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">➕</div>
-                                <p className="f1-font text-xs opacity-50">Create New Room</p>
-                            </button>
+                <div className="flex flex-col items-center justify-center min-h-screen p-6">
+                    <h1 className="text-5xl font-black italic mb-12">F1<span className="text-[#e10600]">PADDOCK</span></h1>
+                    <div className="f1-glass p-8 rounded-3xl w-full max-w-sm mb-6">
+                        <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl mb-4 text-center uppercase font-bold" placeholder="ROOM CODE" value={inputRoom} onChange={e => setInputRoom(e.target.value)} />
+                        <div className="grid grid-cols-2 gap-4">
+                            <button onClick={handleCreate} className="f1-gradient p-4 rounded-xl font-black uppercase text-xs">Create</button>
+                            <button onClick={() => handleJoin()} className="bg-white text-black p-4 rounded-xl font-black uppercase text-xs">Join</button>
                         </div>
                     </div>
-
-                    <div className="f1-glass p-8 rounded-[3rem] w-full max-w-4xl flex items-center justify-between">
-                        <div className="flex-1">
-                            <h3 className="f1-font text-xs opacity-40 mb-2 tracking-widest">Next Race</h3>
-                            <select className="bg-transparent f1-font text-xl outline-none" onChange={e => setSelectedRaceIdx(parseInt(e.target.value))}>
-                                {CALENDAR_2026.map((r, i) => <option key={i} value={i} className="bg-black">{r.name}</option>)}
-                            </select>
+                    {myRooms.map(r => (
+                        <div key={r.code} className="f1-glass p-4 rounded-xl flex justify-between items-center w-full max-w-sm mb-2 cursor-pointer" onClick={() => handleJoin(r.code)}>
+                            <div><p className="text-xs font-bold">{r.name}</p><p className="text-[#e10600] text-[10px]">{r.code}</p></div>
+                            <button onClick={(e) => deleteRoom(e, r.code)}>🗑️</button>
                         </div>
-                        <div className="text-right">
-                            <p className="text-4xl f1-font f1-red italic">{Math.max(0, Math.ceil((new Date(CALENDAR_2026[selectedRaceIdx].date) - new Date()) / (1000*60*60*24)))}</p>
-                            <p className="text-[10px] font-bold opacity-30">DAYS TO LIGHTS OUT</p>
-                        </div>
-                    </div>
+                    ))}
                 </div>
             );
 
             if (view === 'dashboard') {
-                const [p1, p2, p3, p4] = sortedParticipants;
-                const completed = CALENDAR_2026.filter(r => new Date(r.date) < new Date()).length;
+                const sorted = [...participants].sort((a, b) => getAccuracy(b) - getAccuracy(a));
+                const p1 = sorted[0]; const p2 = sorted[1]; const p3 = sorted[2];
+                const tie23 = p2 && p3 && getAccuracy(p2) === getAccuracy(p3) && getAccuracy(p2) !== 0;
 
                 return (
-                    <div className="max-w-6xl mx-auto p-6 pt-10">
-                        {/* Header */}
-                        <div className="flex justify-between items-center mb-12">
-                            <div className="flex items-center gap-6">
-                                <button onClick={() => setView('landing')} className="text-[10px] f1-font opacity-30 hover:opacity-100 transition">← EXIT</button>
-                                <h2 className="f1-font text-2xl tracking-tighter italic">🏁 {room.name}</h2>
-                            </div>
-                            <div className="flex gap-3">
-                                <button onClick={() => { navigator.clipboard.writeText(room.code); alert("Code Copied!"); }} 
-                                    className="px-4 py-2 rounded-lg bg-zinc-900 border border-white/5 text-[10px] f1-font">COPY CODE: {room.code}</button>
-                                <button onClick={() => setIsDrawerOpen(true)} className="f1-bg-red px-6 py-2 rounded-lg text-[10px] f1-font italic">➕ ADD USER</button>
+                    <div className="max-w-2xl mx-auto p-6 py-12">
+                        <div className="flex justify-between items-center mb-8">
+                            <h2 className="text-2xl font-black italic uppercase">{room.name}</h2>
+                            <button onClick={() => setView('landing')} className="text-zinc-500 text-[10px] font-bold uppercase">Exit</button>
+                        </div>
+
+                        <div className="f1-glass p-8 rounded-[2.5rem] mb-12 text-center relative overflow-hidden">
+                            <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest mb-10">2026 Live Standings</p>
+                            <div className="flex items-end justify-center gap-3 h-48">
+                                <div className="flex-1 max-w-[120px]">
+                                    <p className="text-[10px] font-bold mb-2 truncate">{tie23 ? `${p2.name} & ${p3.name}` : (p2?.name || '-')}</p>
+                                    <div className="rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic"
+                                         style={{ height: '90px', background: tie23 ? `repeating-linear-gradient(45deg, ${TEAM_CONFIG[p2.color].color}, ${TEAM_CONFIG[p2.color].color} 10px, ${TEAM_CONFIG[p3.color].color} 10px, ${TEAM_CONFIG[p3.color].color} 20px)` : (p2 ? TEAM_CONFIG[p2.color].color : '#222') }}>
+                                        {tie23 ? '=' : '2'}
+                                    </div>
+                                    <p className="mt-2 text-[10px] font-bold text-zinc-400">{p2 ? getAccuracy(p2) : 0}%</p>
+                                </div>
+                                <div className="flex-1 max-w-[120px]">
+                                    <p className="text-xs font-bold mb-2 truncate">{p1?.name || '-'}</p>
+                                    <div className="rounded-t-lg flex items-center justify-center font-black text-4xl text-black/40 italic"
+                                         style={{ height: '120px', background: p1 ? TEAM_CONFIG[p1.color].color : '#333', borderTop: '2px solid white' }}>1</div>
+                                    <p className="mt-2 text-xs font-bold">{p1 ? getAccuracy(p1) : 0}%</p>
+                                </div>
+                                {!tie23 && (
+                                    <div className="flex-1 max-w-[100px]">
+                                        <p className="text-[10px] font-bold mb-2 truncate">{p3?.name || '-'}</p>
+                                        <div className="rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic"
+                                             style={{ height: '70px', background: p3 ? TEAM_CONFIG[p3.color].color : '#111' }}>3</div>
+                                        <p className="mt-2 text-[10px] font-bold text-zinc-400">{p3 ? getAccuracy(p3) : 0}%</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Top Section: Podium & Progress */}
-                        <div className="grid lg:grid-cols-3 gap-8 mb-12">
-                            <div className="lg:col-span-2 f1-glass rounded-[3rem] p-10 flex items-end justify-center gap-6 h-[400px]">
-                                {/* P2 */}
-                                <div className="flex-1 text-center">
-                                    <p className="text-[10px] f1-font mb-2 opacity-50">{p2?.name || 'TBA'}</p>
-                                    <div className="podium-pillar rounded-t-2xl" style={{ height: p2 ? '150px' : '20px', background: p2 ? TEAMS[p2.team]?.color : '#111' }}>
-                                        <span className="f1-font text-4xl opacity-20 italic">2</span>
-                                    </div>
-                                </div>
-                                {/* P1 */}
-                                <div className="flex-1 text-center">
-                                    <p className="f1-font text-sm mb-2">{p1?.name || 'TBA'}</p>
-                                    <div className="podium-pillar rounded-t-2xl border-t-4 border-white/20 shadow-[0_-20px_50px_rgba(225,6,0,0.2)]" 
-                                        style={{ height: p1 ? '220px' : '20px', background: p1 ? TEAMS[p1.team]?.color : '#222' }}>
-                                        <span className="f1-font text-6xl opacity-30 italic">1</span>
-                                    </div>
-                                </div>
-                                {/* P3 */}
-                                <div className="flex-1 text-center">
-                                    <p className="text-[10px] f1-font mb-2 opacity-50">{p3?.name || 'TBA'}</p>
-                                    <div className="podium-pillar rounded-t-2xl" style={{ height: p3 ? '100px' : '20px', background: p3 ? TEAMS[p3.team]?.color : '#0a0a0a' }}>
-                                        <span className="f1-font text-2xl opacity-10 italic">3</span>
-                                    </div>
-                                </div>
+                        <div className="f1-glass p-8 rounded-3xl mb-12">
+                            <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl text-white mb-6" placeholder="Participant Name" value={inputUser} onChange={e => setInputUser(e.target.value)} />
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-6">
+                                {Object.entries(TEAM_CONFIG).map(([id, team]) => (
+                                    <button key={id} onClick={() => setSelectedColor(id)} className={`flex items-center gap-2 p-2 rounded-lg border text-[10px] font-bold uppercase transition ${selectedColor === id ? 'bg-zinc-800 border-white' : 'border-zinc-900 opacity-50'}`}>
+                                        <div className="w-3 h-3 rounded-full" style={{background: team.color}} /> {team.name}
+                                    </button>
+                                ))}
                             </div>
-                            
-                            <div className="f1-glass rounded-[3rem] flex items-center justify-center p-8">
-                                <ProgressCircle completed={completed} total={CALENDAR_2026.length} />
-                            </div>
+                            <button onClick={addPlayer} className="w-full f1-gradient p-4 rounded-xl font-black uppercase text-xs">Add Strategist</button>
                         </div>
 
-                        {/* Participant Grid */}
-                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {sortedParticipants.map((p, idx) => (
-                                <div key={p.id} className="f1-glass p-6 rounded-[2rem] border-l-4 relative group" style={{ borderColor: TEAMS[p.team]?.color }}>
-                                    <div className="flex justify-between items-start mb-4">
-                                        <p className="text-[8px] f1-font opacity-40">{TEAMS[p.team].name}</p>
-                                        <p className="f1-font f1-red italic text-xl">{getAccuracy(p)}%</p>
-                                    </div>
-                                    <h4 className="f1-font text-lg tracking-tight mb-4">{p.name}</h4>
-                                    <button onClick={() => {
-                                        // Simple prediction adder for basics
-                                        const txt = prompt("Enter Prediction:");
-                                        if(!txt) return;
-                                        const updated = participants.map(u => u.id === p.id ? {...u, predictions: [...(u.predictions||[]), {id: Date.now(), text: txt, done: false}]} : u);
-                                        syncDB(updated);
-                                    }} className="w-full py-2 bg-white/5 rounded-lg text-[9px] f1-font hover:bg-white/10 transition">Manage Predictions</button>
+                        <div className="space-y-3">
+                            {participants.map(p => (
+                                <div key={p.id} onClick={() => { setActiveUser(p); setView('predictions'); }} className="f1-glass p-6 rounded-2xl flex justify-between items-center cursor-pointer border-l-4 hover:bg-zinc-900/50" style={{borderLeftColor: TEAM_CONFIG[p.color].color}}>
+                                    <span className="font-bold uppercase italic">{p.name}</span>
+                                    <span className="text-[10px] font-bold text-zinc-500">{getAccuracy(p)}% ACCURACY</span>
                                 </div>
                             ))}
                         </div>
-
-                        {/* Add User Drawer */}
-                        {isDrawerOpen && (
-                            <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
-                                <div className="f1-glass max-w-sm w-full p-10 rounded-[2.5rem] border-red-600/30 border-2">
-                                    <h2 className="f1-font text-xl italic mb-8">Sign Strategist</h2>
-                                    
-                                    <label className="text-[10px] f1-font opacity-40 block mb-2 uppercase tracking-widest">Name</label>
-                                    <input className="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl mb-6 outline-none f1-font italic text-sm" 
-                                        placeholder="PILOT NAME" value={newName} onChange={e => setNewName(e.target.value)} />
-
-                                    <label className="text-[10px] f1-font opacity-40 block mb-2 uppercase tracking-widest">Constructors Team</label>
-                                    <select className="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl mb-8 outline-none text-xs font-bold uppercase"
-                                        value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)}>
-                                        {Object.entries(TEAMS).map(([id, t]) => <option key={id} value={id}>{t.name}</option>)}
-                                    </select>
-
-                                    <div className="flex gap-4">
-                                        <button onClick={() => setIsDrawerOpen(false)} className="flex-1 py-4 text-xs font-bold opacity-40">CANCEL</button>
-                                        <button onClick={() => {
-                                            if(!newName) return;
-                                            syncDB([...participants, { id: Date.now(), name: newName, team: selectedTeam, predictions: [] }]);
-                                            setNewName('');
-                                            setIsDrawerOpen(false);
-                                        }} className="flex-1 f1-bg-red py-4 rounded-xl f1-font text-xs italic">CONFIRM</button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 );
             }
+
+            if (view === 'predictions') return (
+                <div className="max-w-2xl mx-auto p-6 py-12">
+                    <button onClick={() => setView('dashboard')} className="text-zinc-500 font-bold text-[10px] uppercase mb-10 block">← Back</button>
+                    <div className="p-8 rounded-3xl mb-12 flex justify-between items-center" style={{background: `linear-gradient(135deg, ${TEAM_CONFIG[activeUser.color].color}44 0%, transparent 100%)`}}>
+                        <div><h1 className="text-4xl font-black italic uppercase">{activeUser.name}</h1>
+                        <p className="text-[10px] font-bold opacity-60 tracking-[0.2em]">LISTED PREDICTIONS</p></div>
+                        <p className="text-3xl font-black italic">{getAccuracy(activeUser)}%</p>
+                    </div>
+                    <div className="flex gap-2 mb-8">
+                        <input className="flex-1 f1-glass p-4 rounded-xl bg-transparent border-zinc-800" placeholder="New prediction..." value={inputPred} onChange={e => setInputPred(e.target.value)} onKeyPress={e => e.key === 'Enter' && (async () => {
+                            const updated = participants.map(p => p.id === activeUser.id ? {...p, predictions: [...p.predictions, {id: Date.now(), text: inputPred, done: false}]} : p);
+                            await sync(updated); setActiveUser(updated.find(u => u.id === activeUser.id)); setInputPred('');
+                        })()} />
+                        <button onClick={async () => {
+                            const updated = participants.map(p => p.id === activeUser.id ? {...p, predictions: [...p.predictions, {id: Date.now(), text: inputPred, done: false}]} : p);
+                            await sync(updated); setActiveUser(updated.find(u => u.id === activeUser.id)); setInputPred('');
+                        }} className="f1-gradient px-6 rounded-xl font-black uppercase text-xs">Add</button>
+                    </div>
+                    <div className="space-y-3">
+                        {activeUser.predictions.map(pr => (
+                            <div key={pr.id} className="f1-glass p-5 rounded-xl flex items-center justify-between">
+                                <div className="flex items-center gap-4 cursor-pointer" onClick={async () => {
+                                    const updated = participants.map(p => p.id === activeUser.id ? {...p, predictions: p.predictions.map(x => x.id === pr.id ? {...x, done: !x.done} : x)} : p);
+                                    await sync(updated); setActiveUser(updated.find(u => u.id === activeUser.id));
+                                }}>
+                                    <div className={`w-5 h-5 rounded border ${pr.done ? 'bg-green-500 border-green-500' : 'border-zinc-700'}`}>{pr.done && '✓'}</div>
+                                    <span className={pr.done ? 'text-zinc-600 line-through' : ''}>{pr.text}</span>
+                                </div>
+                                <button onClick={async () => {
+                                    const updated = participants.map(p => p.id === activeUser.id ? {...p, predictions: p.predictions.filter(x => x.id !== pr.id)} : p);
+                                    await sync(updated); setActiveUser(updated.find(u => u.id === activeUser.id));
+                                }} className="text-zinc-600">✕</button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
