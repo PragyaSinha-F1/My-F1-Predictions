@@ -38,23 +38,19 @@
             andretti: { name: 'Andretti Cadillac', color: '#FFFFFF' }
         };
 
-        const CALENDAR_2026 = [
-            { name: "Australia", date: new Date("2026-03-08") }, { name: "Abu Dhabi", date: new Date("2026-12-06") }
-        ];
-
         function CircularProgress({ value, max }) {
             const radius = 50; const dash = 2 * Math.PI * radius;
             const offset = dash - (value / max) * dash;
             return (
                 <div className="relative flex items-center justify-center">
-                    <svg width="120" height="120">
-                        <circle cx="60" cy="60" r={radius} stroke="#1f1f1f" strokeWidth="6" fill="transparent" />
-                        <circle cx="60" cy="60" r={radius} stroke="#e10600" strokeWidth="6" fill="transparent"
+                    <svg width="110" height="110">
+                        <circle cx="55" cy="55" r={radius} stroke="#1f1f1f" strokeWidth="6" fill="transparent" />
+                        <circle cx="55" cy="55" r={radius} stroke="#e10600" strokeWidth="6" fill="transparent"
                                 strokeDasharray={dash} strokeDashoffset={offset} strokeLinecap="round" className="progress-ring__circle" />
                     </svg>
                     <div className="absolute text-center">
                         <span className="block text-2xl font-black f1-font leading-none">{value}</span>
-                        <span className="text-[7px] opacity-40 uppercase font-black tracking-widest">Races</span>
+                        <span className="text-[7px] opacity-40 uppercase font-black tracking-widest leading-none">Races</span>
                     </div>
                 </div>
             );
@@ -71,9 +67,6 @@
             const [userTeam, setUserTeam] = useState('redbull');
             const [predInput, setPredInput] = useState('');
 
-            const currentRound = 0; // Fixed for demo as per image
-            const seasonProgress = 0;
-
             const getAcc = (p) => {
                 if (!p?.predictions || p.predictions.length === 0) return 0;
                 return Math.round((p.predictions.filter(x => x.done).length / p.predictions.length) * 100);
@@ -87,14 +80,19 @@
 
             const handleJoin = async (code) => {
                 const { data } = await sb.from('f1_rooms').select().eq('code', code.toUpperCase()).single();
-                if (data) { setRoom(data); setParticipants(data.data.participants || []); setIsLocked(data.data.isLocked || false); setView('dashboard'); }
+                if (data) { 
+                    setRoom(data); 
+                    setParticipants(data.data.participants || []); 
+                    setIsLocked(data.data.isLocked || false); 
+                    setView('dashboard'); 
+                }
             };
 
             if (view === 'landing') return (
                 <div className="flex flex-col items-center justify-center min-h-screen p-6">
-                    <h1 className="text-4xl font-black uppercase f1-font italic mb-10 tracking-tighter">F1 <span className="f1-red">PREDICTIONS</span></h1>
-                    <div className="f1-glass p-8 rounded-3xl w-full max-w-sm border border-zinc-800 shadow-2xl mb-8 text-center">
-                        <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-8 text-center outline-none font-bold uppercase text-white" placeholder="ENTER ROOM CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
+                    <h1 className="text-4xl font-black uppercase f1-font italic mb-10 tracking-tighter">🏎🏁 F1 <span className="f1-red">PREDICTIONS</span></h1>
+                    <div className="f1-glass p-8 rounded-3xl w-full max-w-sm border border-zinc-800 shadow-2xl">
+                        <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-8 text-center outline-none font-bold uppercase text-white" placeholder="CREATE ROOM/ENTER ROOM CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
                         <button onClick={() => handleJoin(roomInput)} className="w-full f1-bg-red p-4 rounded-xl font-black uppercase text-sm">Join Paddock</button>
                     </div>
                 </div>
@@ -102,45 +100,40 @@
 
             if (view === 'dashboard') {
                 const sorted = [...participants].sort((a, b) => getAcc(b) - getAcc(a));
-                const p1 = sorted[0]; 
-                const p2 = sorted[1]; 
-                const p3 = sorted[2]; 
-                const p4 = sorted[3];
+                const p1 = sorted[0]; const p2 = sorted[1]; const p3 = sorted[2]; const p4 = sorted[3];
 
-                // Case A: P2 and P3 are equal (Sumit and Pragati case)
                 const is2nd3rdTie = p2 && p3 && getAcc(p2) === getAcc(p3) && getAcc(p2) > 0;
-                
-                // Case B: P3 and P4 are equal (Tie for bronze)
                 const is3rd4thTie = !is2nd3rdTie && p3 && p4 && getAcc(p3) === getAcc(p4) && getAcc(p3) > 0;
 
                 return (
                     <div className="max-w-5xl mx-auto p-6 pt-10">
                         <header className="flex justify-between items-center mb-6">
                             <div className="flex items-center gap-2 font-black uppercase tracking-widest text-xs italic">🏁 {room.name}</div>
-                            <button onClick={() => updateDB(participants, !isLocked)} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${isLocked ? 'bg-zinc-800 text-green-500' : 'bg-red-600 text-white'}`}>
-                                {isLocked ? '🔓 UNLOCKED' : '🔒 LOCK GRID'}
-                            </button>
+                            <div className="flex items-center gap-4">
+                                <button onClick={() => setView('landing')} className="text-[10px] font-black opacity-40 hover:opacity-100 uppercase tracking-widest">Exit</button>
+                                <button onClick={() => updateDB(participants, !isLocked)} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${isLocked ? 'bg-zinc-800 text-green-500' : 'bg-red-600 text-white'}`}>
+                                    {isLocked ? '🔓 UNLOCKED' : '🔒 LOCK GRID'}
+                                </button>
+                            </div>
                         </header>
 
                         <div className="grid lg:grid-cols-4 gap-4 mb-10">
-                            <div className="lg:col-span-3 f1-glass rounded-[2.5rem] p-8 flex items-end justify-center gap-4 h-[320px] relative overflow-hidden shadow-2xl">
+                            {/* COMPACT PODIUM */}
+                            <div className="lg:col-span-3 f1-glass rounded-[2rem] p-8 flex items-end justify-center gap-4 h-[300px] relative overflow-hidden shadow-2xl">
                                 <div className="absolute top-6 left-8 text-[9px] font-black opacity-20 uppercase tracking-[0.5em]">Grid Leaders</div>
                                 
-                                {/* P2 Pillar */}
                                 <div className="flex-1 text-center">
                                     <p className="text-[9px] font-black mb-2 uppercase opacity-60 italic truncate">{p2?.name || '-'}</p>
                                     <div className="podium-pillar rounded-t-2xl flex items-center justify-center text-4xl font-black italic text-black/20" 
-                                         style={{ height: p2 ? '140px' : '30px', background: p2 ? TEAMS[p2.color].color : '#111' }}>2</div>
+                                         style={{ height: p2 ? '130px' : '30px', background: p2 ? TEAMS[p2.color].color : '#111' }}>2</div>
                                 </div>
 
-                                {/* P1 Pillar */}
                                 <div className="flex-1 text-center">
                                     <p className="text-xs font-black mb-2 uppercase italic truncate">{p1?.name || '-'}</p>
-                                    <div className="podium-pillar rounded-t-2xl border-t-4 border-white/20 flex items-center justify-center text-6xl font-black italic text-black/30" 
-                                         style={{ height: p1 ? '200px' : '30px', background: p1 ? TEAMS[p1.color].color : '#222' }}>1</div>
+                                    <div className="podium-pillar rounded-t-2xl border-t-4 border-white/20 flex items-center justify-center text-6xl font-black italic text-black/30 shadow-[0_15px_30px_rgba(225,6,0,0.2)]" 
+                                         style={{ height: p1 ? '190px' : '30px', background: p1 ? TEAMS[p1.color].color : '#222' }}>1</div>
                                 </div>
 
-                                {/* P3 Pillar (Handles all Ties) */}
                                 <div className="flex-1 text-center">
                                     <div className="flex flex-col items-center mb-2">
                                         <p className="text-[9px] font-black uppercase opacity-60 italic truncate w-full">
@@ -149,23 +142,24 @@
                                     </div>
                                     <div className="podium-pillar rounded-t-2xl flex flex-col items-center justify-center text-3xl font-black italic text-black/20" 
                                          style={{ 
-                                            height: p3 ? (is2nd3rdTie ? '140px' : '90px') : '30px', 
+                                            height: p3 ? (is2nd3rdTie ? '130px' : '85px') : '30px', 
                                             background: is3rd4thTie 
                                                 ? `linear-gradient(90deg, ${TEAMS[p3.color].color} 50%, ${TEAMS[p4.color].color} 50%)`
                                                 : (p3 ? TEAMS[p3.color].color : '#0a0a0a')
                                          }}>
                                         {is2nd3rdTie ? 2 : 3}
-                                        {(is2nd3rdTie || is3rd4thTie) && <span className="text-[8px] block mt-1 tracking-tighter">TIE</span>}
+                                        {(is2nd3rdTie || is3rd4thTie) && <span className="text-[7px] block mt-0.5 tracking-tighter">TIE</span>}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="f1-glass rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center shadow-2xl">
-                                <CircularProgress value={currentRound} max={24} />
-                                <p className="mt-4 text-[8px] font-black uppercase tracking-widest opacity-40">2026 TIMELINE</p>
+                            <div className="f1-glass rounded-[2rem] p-6 flex flex-col items-center justify-center text-center shadow-2xl">
+                                <CircularProgress value={0} max={24} />
+                                <p className="mt-4 text-[8px] font-black uppercase tracking-widest opacity-40 italic">Season Progress</p>
                             </div>
                         </div>
 
+                        {/* GRID CARDS */}
                         <div className="grid md:grid-cols-3 gap-6">
                             {!isLocked && (
                                 <div className="f1-glass p-6 rounded-3xl border-dashed border-zinc-800 flex flex-col justify-center">
@@ -199,7 +193,7 @@
                     <button onClick={() => setView('dashboard')} className="mb-10 text-[10px] font-black opacity-30 uppercase tracking-widest hover:opacity-100 transition">← Back to Paddock</button>
                     <div className="mb-12 border-l-8 p-8 bg-white/5 rounded-r-3xl flex justify-between items-end" style={{borderColor: TEAMS[activeUser.color].color}}>
                         <div>
-                            <h1 className="text-5xl font-black italic uppercase leading-none">{activeUser.name}</h1>
+                            <h1 className="text-5xl font-black italic uppercase leading-none f1-font tracking-tighter">{activeUser.name}</h1>
                             <p className="text-[10px] opacity-40 font-black mt-4 tracking-[0.4em] uppercase">{TEAMS[activeUser.color].name}</p>
                         </div>
                         <p className="text-5xl font-black f1-red italic">{getAcc(activeUser)}%</p>
