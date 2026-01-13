@@ -18,6 +18,8 @@
         .f1-bg-red { background-color: #e10600; }
         .podium-pillar { transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .progress-ring__circle { transition: stroke-dashoffset 1s ease-in-out; transform: rotate(-90deg); transform-origin: 50% 50%; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -39,30 +41,18 @@
         };
 
         const CALENDAR_2026 = [
-            { name: "Australia", date: "2026-03-15" },
-            { name: "China", date: "2026-03-22" },
-            { name: "Japan", date: "2026-04-05" },
-            { name: "Bahrain", date: "2026-04-19" },
-            { name: "Saudi Arabia", date: "2026-04-26" },
-            { name: "Miami", date: "2026-05-10" },
-            { name: "Imola", date: "2026-05-24" },
-            { name: "Monaco", date: "2026-05-31" },
-            { name: "Spain", date: "2026-06-14" },
-            { name: "Canada", date: "2026-06-28" },
-            { name: "Austria", date: "2026-07-12" },
-            { name: "Great Britain", date: "2026-07-19" },
-            { name: "Belgium", date: "2026-08-02" },
-            { name: "Hungary", date: "2026-08-09" },
-            { name: "Netherlands", date: "2026-08-30" },
-            { name: "Italy", date: "2026-09-06" },
-            { name: "Azerbaijan", date: "2026-09-20" },
-            { name: "Singapore", date: "2026-10-04" },
-            { name: "USA (Austin)", date: "2026-10-25" },
-            { name: "Mexico", date: "2026-11-01" },
-            { name: "Brazil", date: "2026-11-15" },
-            { name: "Las Vegas", date: "2026-11-28" },
-            { name: "Qatar", date: "2026-12-06" },
-            { name: "Abu Dhabi", date: "2026-12-13" }
+            { name: "Australia", date: "2026-03-15" }, { name: "China", date: "2026-03-22" },
+            { name: "Japan", date: "2026-04-05" }, { name: "Bahrain", date: "2026-04-19" },
+            { name: "Saudi Arabia", date: "2026-04-26" }, { name: "Miami", date: "2026-05-10" },
+            { name: "Imola", date: "2026-05-24" }, { name: "Monaco", date: "2026-05-31" },
+            { name: "Spain", date: "2026-06-14" }, { name: "Canada", date: "2026-06-28" },
+            { name: "Austria", date: "2026-07-12" }, { name: "Great Britain", date: "2026-07-19" },
+            { name: "Belgium", date: "2026-08-02" }, { name: "Hungary", date: "2026-08-09" },
+            { name: "Netherlands", date: "2026-08-30" }, { name: "Italy", date: "2026-09-06" },
+            { name: "Azerbaijan", date: "2026-09-20" }, { name: "Singapore", date: "2026-10-04" },
+            { name: "USA", date: "2026-10-25" }, { name: "Mexico", date: "2026-11-01" },
+            { name: "Brazil", date: "2026-11-15" }, { name: "Las Vegas", date: "2026-11-28" },
+            { name: "Qatar", date: "2026-12-06" }, { name: "Abu Dhabi", date: "2026-12-13" }
         ];
 
         function CircularProgress({ value, max }) {
@@ -94,11 +84,17 @@
             const [userName, setUserName] = useState('');
             const [userTeam, setUserTeam] = useState('redbull');
             const [predInput, setPredInput] = useState('');
+            const [history, setHistory] = useState(JSON.parse(localStorage.getItem('f1_history') || '[]'));
 
-            // Calculate Season Progress
             const now = new Date();
             const completedRaces = CALENDAR_2026.filter(r => new Date(r.date) < now).length;
             const nextRace = CALENDAR_2026.find(r => new Date(r.date) >= now) || CALENDAR_2026[CALENDAR_2026.length - 1];
+
+            const saveToHistory = (code, name) => {
+                const newHist = [{code, name}, ...history.filter(h => h.code !== code)].slice(0, 5);
+                setHistory(newHist);
+                localStorage.setItem('f1_history', JSON.stringify(newHist));
+            };
 
             const getAcc = (p) => {
                 if (!p?.predictions || p.predictions.length === 0) return 0;
@@ -117,46 +113,74 @@
                     setRoom(data); 
                     setParticipants(data.data.participants || []); 
                     setIsLocked(data.data.isLocked || false); 
+                    saveToHistory(data.code, data.name);
                     setView('dashboard'); 
-                } else {
-                    alert("Room not found");
-                }
+                } else { alert("Room not found"); }
             };
 
             const handleCreate = async () => {
                 if (!newRoomName) return;
                 const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-                const { data, error } = await sb.from('f1_rooms').insert([{ 
-                    code, 
-                    name: newRoomName, 
-                    data: { participants: [], isLocked: false } 
-                }]).select().single();
-                
+                const { data } = await sb.from('f1_rooms').insert([{ code, name: newRoomName, data: { participants: [], isLocked: false } }]).select().single();
                 if (data) {
-                    setRoom(data);
-                    setParticipants([]);
-                    setIsLocked(false);
+                    setRoom(data); setParticipants([]); setIsLocked(false);
+                    saveToHistory(code, newRoomName);
                     setView('dashboard');
                 }
             };
 
             if (view === 'landing') return (
-                <div className="flex flex-col items-center justify-center min-h-screen p-6">
-                    <h1 className="text-4xl font-black uppercase f1-font italic mb-10 tracking-tighter">F1 <span className="f1-red">PREDICTIONS</span></h1>
+                <div className="max-w-6xl mx-auto p-6 pt-12 min-h-screen flex flex-col">
+                    <h1 className="text-4xl font-black uppercase f1-font italic mb-12 tracking-tighter text-center">F1 <span className="f1-red">PREDICTIONS</span></h1>
                     
-                    <div className="grid md:grid-cols-2 gap-6 w-full max-w-2xl">
-                        {/* Join Section */}
-                        <div className="f1-glass p-8 rounded-3xl border border-zinc-800 shadow-2xl text-center">
-                            <h2 className="f1-font text-xs mb-6 opacity-50 uppercase tracking-widest">Join Existing</h2>
-                            <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-8 text-center outline-none font-bold uppercase text-white" placeholder="ROOM CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
-                            <button onClick={() => handleJoin(roomInput)} className="w-full bg-zinc-800 hover:bg-zinc-700 p-4 rounded-xl font-black uppercase text-sm transition">Enter Paddock</button>
+                    <div className="grid lg:grid-cols-3 gap-8 flex-1">
+                        {/* LEFT: ROOM ACTIONS */}
+                        <div className="space-y-6">
+                            <div className="f1-glass p-8 rounded-3xl border border-zinc-800 shadow-2xl">
+                                <h2 className="f1-font text-[10px] mb-6 opacity-50 uppercase tracking-widest">Join Existing</h2>
+                                <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-6 text-center outline-none font-bold uppercase text-white" placeholder="ROOM CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
+                                <button onClick={() => handleJoin(roomInput)} className="w-full bg-zinc-800 hover:bg-zinc-700 p-4 rounded-xl font-black uppercase text-xs transition">Enter Paddock</button>
+                            </div>
+                            <div className="f1-glass p-8 rounded-3xl border border-zinc-800 shadow-2xl">
+                                <h2 className="f1-font text-[10px] mb-6 opacity-50 uppercase tracking-widest">New League</h2>
+                                <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-6 text-center outline-none font-bold uppercase text-white" placeholder="SEASON NAME" value={newRoomName} onChange={e => setNewRoomName(e.target.value)} />
+                                <button onClick={handleCreate} className="w-full f1-bg-red p-4 rounded-xl font-black uppercase text-xs transition">Create Grid</button>
+                            </div>
                         </div>
 
-                        {/* Create Section */}
-                        <div className="f1-glass p-8 rounded-3xl border border-zinc-800 shadow-2xl text-center">
-                            <h2 className="f1-font text-xs mb-6 opacity-50 uppercase tracking-widest">Host New Room</h2>
-                            <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-8 text-center outline-none font-bold uppercase text-white" placeholder="SEASON NAME" value={newRoomName} onChange={e => setNewRoomName(e.target.value)} />
-                            <button onClick={handleCreate} className="w-full f1-bg-red p-4 rounded-xl font-black uppercase text-sm transition">Create Grid</button>
+                        {/* MIDDLE: RECENT ROOMS */}
+                        <div className="f1-glass p-8 rounded-[2.5rem] border border-zinc-800">
+                            <h2 className="f1-font text-[10px] mb-8 opacity-50 uppercase tracking-widest">Recent Paddocks</h2>
+                            <div className="space-y-4">
+                                {history.length === 0 && <p className="text-xs opacity-20 font-bold uppercase text-center mt-20 italic">No previous rooms found</p>}
+                                {history.map(h => (
+                                    <div key={h.code} onClick={() => handleJoin(h.code)} className="bg-white/5 p-5 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-white/10 transition group">
+                                        <div>
+                                            <p className="font-black italic uppercase text-sm group-hover:text-red-500 transition">{h.name}</p>
+                                            <p className="text-[10px] opacity-40 font-bold mt-1 tracking-widest uppercase">{h.code}</p>
+                                        </div>
+                                        <span className="text-xs opacity-20 group-hover:opacity-100">→</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* RIGHT: RACE CALENDAR */}
+                        <div className="f1-glass p-8 rounded-[2.5rem] border border-zinc-800 flex flex-col">
+                            <h2 className="f1-font text-[10px] mb-6 opacity-50 uppercase tracking-widest italic">Upcoming Race</h2>
+                            <div className="flex-1 flex flex-col justify-center items-center text-center">
+                                <p className="text-5xl font-black f1-font mb-2 f1-red italic tracking-tighter uppercase">{nextRace.name}</p>
+                                <p className="text-xs font-black opacity-40 tracking-widest uppercase">{new Date(nextRace.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                <div className="mt-10 w-full h-px bg-white/5"></div>
+                                <div className="mt-8 space-y-2 text-left w-full overflow-y-auto max-h-[150px] pr-2">
+                                    {CALENDAR_2026.slice(completedRaces, completedRaces + 4).map((r, i) => (
+                                        <div key={i} className="flex justify-between text-[10px] font-bold uppercase py-2 border-b border-white/5 opacity-40">
+                                            <span>{r.name}</span>
+                                            <span>{r.date}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -172,8 +196,9 @@
                     <div className="max-w-5xl mx-auto p-6 pt-10">
                         <header className="flex justify-between items-center mb-6">
                             <div className="flex items-center gap-4">
-                                <button onClick={() => setView('landing')} className="text-[10px] font-black opacity-30 hover:opacity-100 uppercase tracking-widest transition">← Exit</button>
-                                <div className="font-black uppercase tracking-widest text-xs italic">🏁 {room.name} <span className="ml-2 opacity-30 font-normal not-italic">({room.code})</span></div>
+                                <button onClick={() => setView('landing')} className="text-[10px] font-black opacity-30 hover:opacity-100 uppercase tracking-widest">← Exit</button>
+                                <div className="font-black uppercase tracking-widest text-xs italic">🏁 {room.name}</div>
+                                <button onClick={() => { navigator.clipboard.writeText(room.code); alert("Code Copied!"); }} className="bg-white/5 px-3 py-1 rounded-md text-[9px] font-black uppercase hover:bg-white/10">Code: {room.code} 📋</button>
                             </div>
                             <button onClick={() => updateDB(participants, !isLocked)} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${isLocked ? 'bg-zinc-800 text-green-500' : 'bg-red-600 text-white'}`}>
                                 {isLocked ? '🔓 UNLOCKED' : '🔒 LOCK GRID'}
@@ -181,48 +206,30 @@
                         </header>
 
                         <div className="grid lg:grid-cols-4 gap-4 mb-10">
-                            {/* Podium Section */}
                             <div className="lg:col-span-3 f1-glass rounded-[2.5rem] p-8 flex items-end justify-center gap-4 h-[320px] relative overflow-hidden shadow-2xl">
                                 <div className="absolute top-6 left-8 text-[9px] font-black opacity-20 uppercase tracking-[0.5em]">Current Leaders</div>
-                                
                                 <div className="flex-1 text-center">
                                     <p className="text-[9px] font-black mb-2 uppercase opacity-60 italic truncate">{p2?.name || '-'}</p>
-                                    <div className="podium-pillar rounded-t-2xl flex items-center justify-center text-4xl font-black italic text-black/20" 
-                                         style={{ height: p2 ? '140px' : '30px', background: p2 ? TEAMS[p2.color].color : '#111' }}>2</div>
+                                    <div className="podium-pillar rounded-t-2xl flex items-center justify-center text-4xl font-black italic text-black/20" style={{ height: p2 ? '140px' : '30px', background: p2 ? TEAMS[p2.color].color : '#111' }}>2</div>
                                 </div>
-
                                 <div className="flex-1 text-center">
                                     <p className="text-xs font-black mb-2 uppercase italic truncate">{p1?.name || '-'}</p>
-                                    <div className="podium-pillar rounded-t-2xl border-t-4 border-white/20 flex items-center justify-center text-6xl font-black italic text-black/30" 
-                                         style={{ height: p1 ? '200px' : '30px', background: p1 ? TEAMS[p1.color].color : '#222' }}>1</div>
+                                    <div className="podium-pillar rounded-t-2xl border-t-4 border-white/20 flex items-center justify-center text-6xl font-black italic text-black/30 shadow-[0_15px_30px_rgba(225,6,0,0.2)]" style={{ height: p1 ? '200px' : '30px', background: p1 ? TEAMS[p1.color].color : '#222' }}>1</div>
                                 </div>
-
                                 <div className="flex-1 text-center">
                                     <p className="text-[9px] font-black mb-2 uppercase opacity-60 italic truncate">{p3?.name || '-'}</p>
                                     <div className="podium-pillar rounded-t-2xl flex flex-col items-center justify-center text-3xl font-black italic text-black/20" 
-                                         style={{ 
-                                            height: p3 ? (is2nd3rdTie ? '140px' : '90px') : '30px', 
-                                            background: is3rd4thTie 
-                                                ? `linear-gradient(90deg, ${TEAMS[p3.color].color} 50%, ${TEAMS[p4.color].color} 50%)`
-                                                : (p3 ? TEAMS[p3.color].color : '#0a0a0a')
-                                         }}>
+                                         style={{ height: p3 ? (is2nd3rdTie ? '140px' : '90px') : '30px', background: is3rd4thTie ? `linear-gradient(90deg, ${TEAMS[p3.color].color} 50%, ${TEAMS[p4.color].color} 50%)` : (p3 ? TEAMS[p3.color].color : '#0a0a0a') }}>
                                         {is2nd3rdTie ? 2 : 3}
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Restored Timeline Tracker */}
                             <div className="f1-glass rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center shadow-2xl">
                                 <CircularProgress value={completedRaces} max={24} />
-                                <div className="mt-4">
-                                    <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Next Grand Prix</p>
-                                    <p className="f1-font text-[10px] text-white mt-1 uppercase">{nextRace.name}</p>
-                                    <p className="text-[9px] opacity-60 mt-1">{new Date(nextRace.date).toLocaleDateString()}</p>
-                                </div>
+                                <p className="mt-4 text-[8px] font-black uppercase tracking-widest opacity-40 italic">2026 Progress</p>
                             </div>
                         </div>
 
-                        {/* Grid Cards */}
                         <div className="grid md:grid-cols-3 gap-6">
                             {!isLocked && (
                                 <div className="f1-glass p-6 rounded-3xl border-dashed border-zinc-800 flex flex-col justify-center">
@@ -240,7 +247,7 @@
                                         <p className="text-[8px] font-black opacity-40 uppercase mb-1">{TEAMS[p.color].name}</p>
                                         <h4 className="text-xl font-black italic uppercase mb-4">{p.name}</h4>
                                         <div className="flex justify-between items-center bg-black/40 p-4 rounded-2xl">
-                                            <span className="text-[9px] font-bold opacity-30 uppercase">Accuracy</span>
+                                            <span className="text-[9px] font-bold opacity-30 uppercase tracking-widest">Accuracy</span>
                                             <span className="font-black f1-red text-xl italic">{getAcc(p)}%</span>
                                         </div>
                                     </div>
