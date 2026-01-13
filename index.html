@@ -81,9 +81,9 @@
 
             if (view === 'landing') return (
                 <div className="flex flex-col items-center justify-center min-h-screen p-6">
-                    <h1 className="text-4xl font-black uppercase f1-font italic mb-10 tracking-tighter">F1 <span className="f1-red">PREDICTIONS</span></h1>
+                    <h1 className="text-4xl font-black uppercase f1-font italic mb-10 tracking-tighter">🏎🏁 F1 <span className="f1-red">PREDICTIONS</span></h1>
                     <div className="f1-glass p-8 rounded-3xl w-full max-w-sm border border-zinc-800 shadow-2xl">
-                        <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-6 text-center outline-none font-bold uppercase text-white" placeholder="ENTER ROOM CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
+                        <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-6 text-center outline-none font-bold uppercase text-white" placeholder="CREATE ROOM / JOIN ROOM" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
                         
                         <div className="flex flex-col gap-3">
                             <button onClick={() => handleJoin(roomInput)} className="w-full bg-zinc-800 hover:bg-zinc-700 p-4 rounded-xl font-black uppercase text-xs tracking-widest transition">Join as Spectator</button>
