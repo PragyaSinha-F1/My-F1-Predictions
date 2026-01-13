@@ -11,10 +11,11 @@
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.cdnfonts.com/css/formula1');
-        body { background-color: black; color: white; font-family: 'Formula1 Display', sans-serif; }
+        body { background-color: black; color: white; font-family: 'Formula1 Display', sans-serif; overflow-x: hidden; }
         .f1-italic { font-family: 'Formula1 Display', sans-serif; font-weight: 900; }
-        .f1-glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .f1-glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); }
         .f1-gradient { background: linear-gradient(90deg, #e10600 0%, #ff3b3b 100%); }
+        input::placeholder { color: #555; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.1em; }
     </style>
 </head>
 <body>
@@ -23,9 +24,10 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
         
-        // UPDATE THESE WITH YOUR ACTUAL SUPABASE KEYS
-        const SB_URL = "https://your-project.supabase.co";
-        const SB_KEY = "your-anon-key";
+        // INTEGRATED SUPABASE KEYS
+        const SB_URL = "https://gyzflcxqehesojhimokd.supabase.co"; 
+        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5emZsY3hxZWhlc29qaGltb2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMzQ4MjcsImV4cCI6MjA4MzcxMDgyN30.fOW7qr9cNEUp6otJU2f-tXtOJxRX4Wge9R76OXE-_Tk";
+
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
         const TEAM_CONFIG = {
@@ -64,17 +66,26 @@
                 return Math.round((correct / p.predictions.length) * 100);
             };
 
+            const sync = async (newList) => {
+                setParticipants(newList);
+                await sb.from('f1_rooms').update({ data: { participants: newList } }).eq('code', room.code);
+            };
+
             const handleCreate = async () => {
                 const code = Math.random().toString(36).substring(2, 8).toUpperCase();
                 const roomName = inputRoom || "2026 Championship";
-                const { data } = await sb.from('f1_rooms').insert([{ code, name: roomName, data: { participants: [] } }]).select();
-                if (data) {
-                    setRoom(data[0]);
-                    const history = [{code, name: roomName, isOwner: true}, ...myRooms];
-                    setMyRooms(history);
-                    localStorage.setItem('f1_paddock_history', JSON.stringify(history));
-                    setView('dashboard');
-                }
+                try {
+                    const { data, error } = await sb.from('f1_rooms').insert([{ code, name: roomName, data: { participants: [] } }]).select();
+                    if (error) throw error;
+                    if (data) {
+                        setRoom(data[0]);
+                        setParticipants([]);
+                        const history = [{code, name: roomName, isOwner: true}, ...myRooms.filter(r => r.code !== code)];
+                        setMyRooms(history);
+                        localStorage.setItem('f1_paddock_history', JSON.stringify(history));
+                        setView('dashboard');
+                    }
+                } catch (e) { alert("Error: Make sure 'f1_rooms' table exists in Supabase!"); }
             };
 
             const handleJoin = async (targetCode = null) => {
@@ -83,83 +94,83 @@
                 if (data) {
                     setRoom(data);
                     setParticipants(data.data.participants || []);
+                    const history = [{code, name: data.name, isOwner: false}, ...myRooms.filter(r => r.code !== code)];
+                    setMyRooms(history.slice(0, 5));
+                    localStorage.setItem('f1_paddock_history', JSON.stringify(history.slice(0, 5)));
                     setView('dashboard');
-                }
+                } else { alert("Room not found!"); }
             };
 
-            const deleteRoom = (e, code) => {
+            const deleteLocalRoom = (e, code) => {
                 e.stopPropagation();
-                if(confirm("Delete this room?")) {
+                if(confirm("Remove from history?")) {
                     const filtered = myRooms.filter(r => r.code !== code);
                     setMyRooms(filtered);
                     localStorage.setItem('f1_paddock_history', JSON.stringify(filtered));
                 }
             };
 
-            const sync = async (newList) => {
-                setParticipants(newList);
-                await sb.from('f1_rooms').update({ data: { participants: newList } }).eq('code', room.code);
-            };
-
-            const addPlayer = () => {
-                if (!inputUser) return;
-                const newList = [...participants, { id: Date.now(), name: inputUser, color: selectedColor, predictions: [] }];
-                sync(newList);
-                setInputUser('');
-            };
-
             if (view === 'landing') return (
-                <div className="flex flex-col items-center justify-center min-h-screen p-6">
-                    <h1 className="text-5xl font-black italic mb-12">F1<span className="text-[#e10600]">PADDOCK</span></h1>
-                    <div className="f1-glass p-8 rounded-3xl w-full max-w-sm mb-6">
-                        <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl mb-4 text-center uppercase font-bold" placeholder="ROOM CODE" value={inputRoom} onChange={e => setInputRoom(e.target.value)} />
+                <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center">
+                    <h1 className="text-6xl font-black italic tracking-tighter mb-2">F1<span className="text-[#e10600]">PADDOCK</span></h1>
+                    <p className="text-zinc-500 font-bold uppercase tracking-[0.3em] text-[10px] mb-12">2026 Regulation Era</p>
+                    
+                    <div className="f1-glass p-8 rounded-[2rem] shadow-2xl mb-8 w-full max-w-sm">
+                        <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl mb-4 text-center uppercase font-bold text-white outline-none focus:border-[#e10600]" 
+                               placeholder="ROOM NAME OR CODE" value={inputRoom} onChange={e => setInputRoom(e.target.value)} />
                         <div className="grid grid-cols-2 gap-4">
-                            <button onClick={handleCreate} className="f1-gradient p-4 rounded-xl font-black uppercase text-xs">Create</button>
+                            <button onClick={handleCreate} className="f1-gradient p-4 rounded-xl font-black uppercase text-xs text-white">Create</button>
                             <button onClick={() => handleJoin()} className="bg-white text-black p-4 rounded-xl font-black uppercase text-xs">Join</button>
                         </div>
                     </div>
-                    {myRooms.map(r => (
-                        <div key={r.code} className="f1-glass p-4 rounded-xl flex justify-between items-center w-full max-w-sm mb-2 cursor-pointer" onClick={() => handleJoin(r.code)}>
-                            <div><p className="text-xs font-bold">{r.name}</p><p className="text-[#e10600] text-[10px]">{r.code}</p></div>
-                            <button onClick={(e) => deleteRoom(e, r.code)}>🗑️</button>
-                        </div>
-                    ))}
+
+                    <div className="w-full max-w-sm space-y-2">
+                        {myRooms.map(r => (
+                            <div key={r.code} className="f1-glass p-4 rounded-xl flex justify-between items-center cursor-pointer hover:border-zinc-700" onClick={() => handleJoin(r.code)}>
+                                <div className="text-left"><p className="text-xs font-bold text-white uppercase">{r.name}</p><p className="text-[#e10600] text-[10px] font-mono">{r.code}</p></div>
+                                <button onClick={(e) => deleteLocalRoom(e, r.code)} className="text-lg">🗑️</button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             );
 
             if (view === 'dashboard') {
                 const sorted = [...participants].sort((a, b) => getAccuracy(b) - getAccuracy(a));
                 const p1 = sorted[0]; const p2 = sorted[1]; const p3 = sorted[2];
-                const tie23 = p2 && p3 && getAccuracy(p2) === getAccuracy(p3) && getAccuracy(p2) !== 0;
+                const acc2 = getAccuracy(p2); const acc3 = getAccuracy(p3);
+                const tie23 = p2 && p3 && acc2 === acc3 && acc2 !== 0;
 
                 return (
                     <div className="max-w-2xl mx-auto p-6 py-12">
-                        <div className="flex justify-between items-center mb-8">
-                            <h2 className="text-2xl font-black italic uppercase">{room.name}</h2>
-                            <button onClick={() => setView('landing')} className="text-zinc-500 text-[10px] font-bold uppercase">Exit</button>
+                        <div className="flex justify-between items-center mb-10">
+                            <div><h2 className="text-3xl font-black italic uppercase text-white leading-none">{room.name}</h2>
+                            <p className="text-[#e10600] text-[10px] font-bold tracking-widest mt-2 uppercase">Code: {room.code}</p></div>
+                            <button onClick={() => setView('landing')} className="text-zinc-600 text-[10px] font-bold uppercase hover:text-white">Exit</button>
                         </div>
 
-                        <div className="f1-glass p-8 rounded-[2.5rem] mb-12 text-center relative overflow-hidden">
-                            <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest mb-10">2026 Live Standings</p>
-                            <div className="flex items-end justify-center gap-3 h-48">
-                                <div className="flex-1 max-w-[120px]">
-                                    <p className="text-[10px] font-bold mb-2 truncate">{tie23 ? `${p2.name} & ${p3.name}` : (p2?.name || '-')}</p>
-                                    <div className="rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic"
-                                         style={{ height: '90px', background: tie23 ? `repeating-linear-gradient(45deg, ${TEAM_CONFIG[p2.color].color}, ${TEAM_CONFIG[p2.color].color} 10px, ${TEAM_CONFIG[p3.color].color} 10px, ${TEAM_CONFIG[p3.color].color} 20px)` : (p2 ? TEAM_CONFIG[p2.color].color : '#222') }}>
+                        <div className="f1-glass p-8 rounded-[2.5rem] mb-12 text-center border-zinc-800 shadow-2xl">
+                            <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest mb-10">Live Standings</p>
+                            <div className="flex items-end justify-center gap-4 h-48">
+                                <div className="flex-1 max-w-[140px]">
+                                    <p className="text-[10px] font-black mb-2 truncate text-white">{tie23 ? `${p2.name} & ${p3.name}` : (p2?.name || '-')}</p>
+                                    <div className="rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic transition-all duration-500"
+                                         style={{ height: '90px', boxShadow: p2 ? `0 -10px 20px ${TEAM_CONFIG[p2.color].color}33` : 'none',
+                                                  background: tie23 ? `repeating-linear-gradient(45deg, ${TEAM_CONFIG[p2.color].color}, ${TEAM_CONFIG[p2.color].color} 15px, ${TEAM_CONFIG[p3.color].color} 15px, ${TEAM_CONFIG[p3.color].color} 30px)` : (p2 ? TEAM_CONFIG[p2.color].color : '#222') }}>
                                         {tie23 ? '=' : '2'}
                                     </div>
-                                    <p className="mt-2 text-[10px] font-bold text-zinc-400">{p2 ? getAccuracy(p2) : 0}%</p>
+                                    <p className="mt-2 text-[10px] font-bold text-zinc-400">{p2 ? acc2 : 0}%</p>
                                 </div>
                                 <div className="flex-1 max-w-[120px]">
-                                    <p className="text-xs font-bold mb-2 truncate">{p1?.name || '-'}</p>
-                                    <div className="rounded-t-lg flex items-center justify-center font-black text-4xl text-black/40 italic"
-                                         style={{ height: '120px', background: p1 ? TEAM_CONFIG[p1.color].color : '#333', borderTop: '2px solid white' }}>1</div>
-                                    <p className="mt-2 text-xs font-bold">{p1 ? getAccuracy(p1) : 0}%</p>
+                                    <p className="text-xs font-black mb-2 truncate text-white uppercase">{p1?.name || '-'}</p>
+                                    <div className="rounded-t-lg flex items-center justify-center font-black text-4xl text-black/40 italic transition-all shadow-xl"
+                                         style={{ height: '120px', background: p1 ? TEAM_CONFIG[p1.color].color : '#333', borderTop: '3px solid white' }}>1</div>
+                                    <p className="mt-2 text-xs font-black text-white">{p1 ? getAccuracy(p1) : 0}%</p>
                                 </div>
                                 {!tie23 && (
                                     <div className="flex-1 max-w-[100px]">
-                                        <p className="text-[10px] font-bold mb-2 truncate">{p3?.name || '-'}</p>
-                                        <div className="rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic"
+                                        <p className="text-[10px] font-black mb-2 truncate text-white">{p3?.name || '-'}</p>
+                                        <div className="rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic transition-all"
                                              style={{ height: '70px', background: p3 ? TEAM_CONFIG[p3.color].color : '#111' }}>3</div>
                                         <p className="mt-2 text-[10px] font-bold text-zinc-400">{p3 ? getAccuracy(p3) : 0}%</p>
                                     </div>
@@ -167,23 +178,25 @@
                             </div>
                         </div>
 
-                        <div className="f1-glass p-8 rounded-3xl mb-12">
-                            <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl text-white mb-6" placeholder="Participant Name" value={inputUser} onChange={e => setInputUser(e.target.value)} />
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-6">
+                        <div className="f1-glass p-8 rounded-[2rem] mb-12 border-zinc-800">
+                            <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl text-white mb-6 outline-none focus:border-[#e10600]" placeholder="NAME" value={inputUser} onChange={e => setInputUser(e.target.value)} />
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-8">
                                 {Object.entries(TEAM_CONFIG).map(([id, team]) => (
-                                    <button key={id} onClick={() => setSelectedColor(id)} className={`flex items-center gap-2 p-2 rounded-lg border text-[10px] font-bold uppercase transition ${selectedColor === id ? 'bg-zinc-800 border-white' : 'border-zinc-900 opacity-50'}`}>
-                                        <div className="w-3 h-3 rounded-full" style={{background: team.color}} /> {team.name}
+                                    <button key={id} onClick={() => setSelectedColor(id)} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${selectedColor === id ? 'bg-zinc-800 border-white scale-105' : 'border-zinc-900 opacity-40 hover:opacity-100'}`}>
+                                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background: team.color}} />
+                                        <span className="text-[10px] font-bold uppercase text-white truncate">{team.name}</span>
                                     </button>
                                 ))}
                             </div>
-                            <button onClick={addPlayer} className="w-full f1-gradient p-4 rounded-xl font-black uppercase text-xs">Add Strategist</button>
+                            <button onClick={() => { if(!inputUser) return; const nl = [...participants, {id: Date.now(), name: inputUser, color: selectedColor, predictions: []}]; sync(nl); setInputUser(''); }} className="w-full f1-gradient p-4 rounded-xl font-black uppercase text-xs text-white">Add Strategist</button>
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             {participants.map(p => (
                                 <div key={p.id} onClick={() => { setActiveUser(p); setView('predictions'); }} className="f1-glass p-6 rounded-2xl flex justify-between items-center cursor-pointer border-l-4 hover:bg-zinc-900/50" style={{borderLeftColor: TEAM_CONFIG[p.color].color}}>
-                                    <span className="font-bold uppercase italic">{p.name}</span>
-                                    <span className="text-[10px] font-bold text-zinc-500">{getAccuracy(p)}% ACCURACY</span>
+                                    <div><p className="text-xl font-black text-white italic uppercase leading-none">{p.name}</p>
+                                    <p className="text-[10px] text-zinc-500 font-bold mt-1 uppercase">{TEAM_CONFIG[p.color].name} Strategist</p></div>
+                                    <span className="text-[10px] font-bold text-zinc-400 bg-zinc-900 px-3 py-1 rounded-full">{getAccuracy(p)}% Accuracy</span>
                                 </div>
                             ))}
                         </div>
@@ -193,36 +206,24 @@
 
             if (view === 'predictions') return (
                 <div className="max-w-2xl mx-auto p-6 py-12">
-                    <button onClick={() => setView('dashboard')} className="text-zinc-500 font-bold text-[10px] uppercase mb-10 block">← Back</button>
-                    <div className="p-8 rounded-3xl mb-12 flex justify-between items-center" style={{background: `linear-gradient(135deg, ${TEAM_CONFIG[activeUser.color].color}44 0%, transparent 100%)`}}>
-                        <div><h1 className="text-4xl font-black italic uppercase">{activeUser.name}</h1>
-                        <p className="text-[10px] font-bold opacity-60 tracking-[0.2em]">LISTED PREDICTIONS</p></div>
-                        <p className="text-3xl font-black italic">{getAccuracy(activeUser)}%</p>
+                    <button onClick={() => setView('dashboard')} className="text-zinc-500 font-bold text-[10px] uppercase mb-12">← Back</button>
+                    <div className="p-10 rounded-[2.5rem] mb-12 flex justify-between items-center" style={{background: `linear-gradient(135deg, ${TEAM_CONFIG[activeUser.color].color}33 0%, transparent 100%)`, border: '1px solid rgba(255,255,255,0.1)'}}>
+                        <div><h1 className="text-5xl font-black italic uppercase text-white leading-none">{activeUser.name}</h1>
+                        <p className="text-[10px] font-bold opacity-60 tracking-[0.3em] mt-3 uppercase">LISTED PREDICTIONS</p></div>
+                        <p className="text-4xl font-black italic text-white">{getAccuracy(activeUser)}%</p>
                     </div>
-                    <div className="flex gap-2 mb-8">
-                        <input className="flex-1 f1-glass p-4 rounded-xl bg-transparent border-zinc-800" placeholder="New prediction..." value={inputPred} onChange={e => setInputPred(e.target.value)} onKeyPress={e => e.key === 'Enter' && (async () => {
-                            const updated = participants.map(p => p.id === activeUser.id ? {...p, predictions: [...p.predictions, {id: Date.now(), text: inputPred, done: false}]} : p);
-                            await sync(updated); setActiveUser(updated.find(u => u.id === activeUser.id)); setInputPred('');
-                        })()} />
-                        <button onClick={async () => {
-                            const updated = participants.map(p => p.id === activeUser.id ? {...p, predictions: [...p.predictions, {id: Date.now(), text: inputPred, done: false}]} : p);
-                            await sync(updated); setActiveUser(updated.find(u => u.id === activeUser.id)); setInputPred('');
-                        }} className="f1-gradient px-6 rounded-xl font-black uppercase text-xs">Add</button>
+                    <div className="flex gap-3 mb-12">
+                        <input className="flex-1 f1-glass p-5 rounded-2xl bg-transparent border-zinc-800 text-white outline-none focus:border-[#e10600]" placeholder="NEW PREDICTION..." value={inputPred} onChange={e => setInputPred(e.target.value)} onKeyPress={e => e.key === 'Enter'} />
+                        <button onClick={async () => { if(!inputPred) return; const nl = participants.map(p => p.id === activeUser.id ? {...p, predictions: [...p.predictions, {id: Date.now(), text: inputPred, done: false}]} : p); await sync(nl); setActiveUser(nl.find(u => u.id === activeUser.id)); setInputPred(''); }} className="f1-gradient px-8 rounded-2xl font-black uppercase text-xs text-white">Add</button>
                     </div>
                     <div className="space-y-3">
                         {activeUser.predictions.map(pr => (
-                            <div key={pr.id} className="f1-glass p-5 rounded-xl flex items-center justify-between">
-                                <div className="flex items-center gap-4 cursor-pointer" onClick={async () => {
-                                    const updated = participants.map(p => p.id === activeUser.id ? {...p, predictions: p.predictions.map(x => x.id === pr.id ? {...x, done: !x.done} : x)} : p);
-                                    await sync(updated); setActiveUser(updated.find(u => u.id === activeUser.id));
-                                }}>
-                                    <div className={`w-5 h-5 rounded border ${pr.done ? 'bg-green-500 border-green-500' : 'border-zinc-700'}`}>{pr.done && '✓'}</div>
-                                    <span className={pr.done ? 'text-zinc-600 line-through' : ''}>{pr.text}</span>
+                            <div key={pr.id} className="f1-glass p-6 rounded-2xl flex items-center justify-between border-zinc-900">
+                                <div className="flex items-center gap-6 cursor-pointer flex-1" onClick={async () => { const nl = participants.map(p => p.id === activeUser.id ? {...p, predictions: p.predictions.map(x => x.id === pr.id ? {...x, done: !x.done} : x)} : p); await sync(nl); setActiveUser(nl.find(u => u.id === activeUser.id)); }}>
+                                    <div className={`w-6 h-6 rounded flex items-center justify-center border-2 ${pr.done ? 'bg-green-500 border-green-500' : 'border-zinc-700'}`}>{pr.done && <span className="text-black font-black text-xs">✓</span>}</div>
+                                    <span className={`text-lg ${pr.done ? 'text-zinc-600 line-through' : 'text-white'}`}>{pr.text}</span>
                                 </div>
-                                <button onClick={async () => {
-                                    const updated = participants.map(p => p.id === activeUser.id ? {...p, predictions: p.predictions.filter(x => x.id !== pr.id)} : p);
-                                    await sync(updated); setActiveUser(updated.find(u => u.id === activeUser.id));
-                                }} className="text-zinc-600">✕</button>
+                                <button onClick={async () => { if(!confirm("Delete?")) return; const nl = participants.map(p => p.id === activeUser.id ? {...p, predictions: p.predictions.filter(x => x.id !== pr.id)} : p); await sync(nl); setActiveUser(nl.find(u => u.id === activeUser.id)); }} className="text-zinc-700 hover:text-red-500 text-xl font-bold p-2">✕</button>
                             </div>
                         ))}
                     </div>
