@@ -24,7 +24,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState } = React;
         const SB_URL = "https://gyzflcxqehesojhimokd.supabase.co"; 
         const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5emZsY3hxZWhlc29qaGltb2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMzQ4MjcsImV4cCI6MjA4MzcxMDgyN30.fOW7qr9cNEUp6otJU2f-tXtOJxRX4Wge9R76OXE-_Tk";
         const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -39,18 +39,7 @@
         };
 
         const CALENDAR_2026 = [
-            { name: "Australia", date: new Date("2026-03-08") }, { name: "China", date: new Date("2026-03-15") },
-            { name: "Japan", date: new Date("2026-03-29") }, { name: "Bahrain", date: new Date("2026-04-12") },
-            { name: "Saudi Arabia", date: new Date("2026-04-19") }, { name: "Miami", date: new Date("2026-05-03") },
-            { name: "Canada", date: new Date("2026-05-24") }, { name: "Monaco", date: new Date("2026-06-07") },
-            { name: "Barcelona", date: new Date("2026-06-14") }, { name: "Austria", date: new Date("2026-06-28") },
-            { name: "Great Britain", date: new Date("2026-07-05") }, { name: "Belgium", date: new Date("2026-07-19") },
-            { name: "Hungary", date: new Date("2026-07-26") }, { name: "Netherlands", date: new Date("2026-08-23") },
-            { name: "Italy", date: new Date("2026-09-06") }, { name: "Madrid", date: new Date("2026-09-13") },
-            { name: "Azerbaijan", date: new Date("2026-09-26") }, { name: "Singapore", date: new Date("2026-10-11") },
-            { name: "Austin", date: new Date("2026-10-25") }, { name: "Mexico", date: new Date("2026-11-01") },
-            { name: "Brazil", date: new Date("2026-11-08") }, { name: "Las Vegas", date: new Date("2026-11-21") },
-            { name: "Qatar", date: new Date("2026-11-29") }, { name: "Abu Dhabi", date: new Date("2026-12-06") }
+            { name: "Australia", date: new Date("2026-03-08") }, { name: "Abu Dhabi", date: new Date("2026-12-06") }
         ];
 
         function CircularProgress({ value, max }) {
@@ -82,8 +71,8 @@
             const [userTeam, setUserTeam] = useState('redbull');
             const [predInput, setPredInput] = useState('');
 
-            const currentRound = CALENDAR_2026.filter(r => r.date < new Date()).length;
-            const seasonProgress = Math.round((currentRound / 24) * 100);
+            const currentRound = 0; // Fixed for demo as per image
+            const seasonProgress = 0;
 
             const getAcc = (p) => {
                 if (!p?.predictions || p.predictions.length === 0) return 0;
@@ -104,13 +93,9 @@
             if (view === 'landing') return (
                 <div className="flex flex-col items-center justify-center min-h-screen p-6">
                     <h1 className="text-4xl font-black uppercase f1-font italic mb-10 tracking-tighter">F1 <span className="f1-red">PREDICTIONS</span></h1>
-                    <div className="f1-glass p-8 rounded-3xl w-full max-w-sm border border-zinc-800 shadow-2xl mb-8">
+                    <div className="f1-glass p-8 rounded-3xl w-full max-w-sm border border-zinc-800 shadow-2xl mb-8 text-center">
                         <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-8 text-center outline-none font-bold uppercase text-white" placeholder="ENTER ROOM CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
                         <button onClick={() => handleJoin(roomInput)} className="w-full f1-bg-red p-4 rounded-xl font-black uppercase text-sm">Join Paddock</button>
-                    </div>
-                    <div className="w-full max-w-sm space-y-2">
-                        <div className="flex justify-between text-[10px] font-black uppercase opacity-40"><span>Season Progress</span><span>{seasonProgress}%</span></div>
-                        <div className="h-1 bg-zinc-900 rounded-full overflow-hidden"><div className="h-full f1-bg-red" style={{width: `${seasonProgress}%`}}></div></div>
                     </div>
                 </div>
             );
@@ -122,62 +107,62 @@
                 const p3 = sorted[2]; 
                 const p4 = sorted[3];
 
-                // FIX: Check if 2nd and 3rd are tied.
-                const isSecondThirdTie = p2 && p3 && getAcc(p2) === getAcc(p3) && getAcc(p2) > 0;
+                // Case A: P2 and P3 are equal (Sumit and Pragati case)
+                const is2nd3rdTie = p2 && p3 && getAcc(p2) === getAcc(p3) && getAcc(p2) > 0;
+                
+                // Case B: P3 and P4 are equal (Tie for bronze)
+                const is3rd4thTie = !is2nd3rdTie && p3 && p4 && getAcc(p3) === getAcc(p4) && getAcc(p3) > 0;
 
                 return (
                     <div className="max-w-5xl mx-auto p-6 pt-10">
                         <header className="flex justify-between items-center mb-6">
                             <div className="flex items-center gap-2 font-black uppercase tracking-widest text-xs italic">🏁 {room.name}</div>
-                            <div className="flex gap-4">
-                                <button onClick={() => setView('landing')} className="text-[10px] font-black opacity-30 hover:opacity-100 uppercase">EXIT</button>
-                                <button onClick={() => updateDB(participants, !isLocked)} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${isLocked ? 'bg-zinc-800 text-green-500' : 'bg-red-600 text-white'}`}>
-                                    {isLocked ? '🔓 UNLOCKED' : '🔒 LOCK GRID'}
-                                </button>
-                            </div>
+                            <button onClick={() => updateDB(participants, !isLocked)} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${isLocked ? 'bg-zinc-800 text-green-500' : 'bg-red-600 text-white'}`}>
+                                {isLocked ? '🔓 UNLOCKED' : '🔒 LOCK GRID'}
+                            </button>
                         </header>
 
                         <div className="grid lg:grid-cols-4 gap-4 mb-10">
-                            {/* COMPACT PODIUM SECTION */}
-                            <div className="lg:col-span-3 f1-glass rounded-[2.5rem] p-8 flex items-end justify-center gap-4 h-[320px] relative shadow-2xl overflow-hidden">
-                                <div className="absolute top-6 left-8 text-[9px] font-black opacity-20 tracking-[0.5em] uppercase">Grid Leaders</div>
+                            <div className="lg:col-span-3 f1-glass rounded-[2.5rem] p-8 flex items-end justify-center gap-4 h-[320px] relative overflow-hidden shadow-2xl">
+                                <div className="absolute top-6 left-8 text-[9px] font-black opacity-20 uppercase tracking-[0.5em]">Grid Leaders</div>
                                 
-                                {/* Position 2 (Left) */}
+                                {/* P2 Pillar */}
                                 <div className="flex-1 text-center">
                                     <p className="text-[9px] font-black mb-2 uppercase opacity-60 italic truncate">{p2?.name || '-'}</p>
                                     <div className="podium-pillar rounded-t-2xl flex items-center justify-center text-4xl font-black italic text-black/20" 
-                                         style={{ height: p2 ? '120px' : '30px', background: p2 ? TEAMS[p2.color].color : '#111' }}>2</div>
+                                         style={{ height: p2 ? '140px' : '30px', background: p2 ? TEAMS[p2.color].color : '#111' }}>2</div>
                                 </div>
 
-                                {/* Position 1 (Center) */}
+                                {/* P1 Pillar */}
                                 <div className="flex-1 text-center">
                                     <p className="text-xs font-black mb-2 uppercase italic truncate">{p1?.name || '-'}</p>
-                                    <div className="podium-pillar rounded-t-2xl border-t-4 border-white/20 flex items-center justify-center text-6xl font-black italic text-black/30 shadow-[0_20px_40px_rgba(225,6,0,0.3)]" 
+                                    <div className="podium-pillar rounded-t-2xl border-t-4 border-white/20 flex items-center justify-center text-6xl font-black italic text-black/30" 
                                          style={{ height: p1 ? '200px' : '30px', background: p1 ? TEAMS[p1.color].color : '#222' }}>1</div>
                                 </div>
 
-                                {/* Position 3 / Tie (Right) */}
+                                {/* P3 Pillar (Handles all Ties) */}
                                 <div className="flex-1 text-center">
                                     <div className="flex flex-col items-center mb-2">
-                                        <p className="text-[9px] font-black uppercase opacity-60 italic truncate w-full">{p3?.name || '-'}</p>
-                                        {isSecondThirdTie && <p className="text-[7px] font-black uppercase opacity-40 italic mt-0.5">Tied with P2</p>}
+                                        <p className="text-[9px] font-black uppercase opacity-60 italic truncate w-full">
+                                            {p3?.name || '-'} {is3rd4thTie ? `/ ${p4.name}` : ''}
+                                        </p>
                                     </div>
                                     <div className="podium-pillar rounded-t-2xl flex flex-col items-center justify-center text-3xl font-black italic text-black/20" 
                                          style={{ 
-                                            height: p3 ? (isSecondThirdTie ? '120px' : '80px') : '30px', 
-                                            background: p3 ? TEAMS[p3.color].color : '#0a0a0a'
+                                            height: p3 ? (is2nd3rdTie ? '140px' : '90px') : '30px', 
+                                            background: is3rd4thTie 
+                                                ? `linear-gradient(90deg, ${TEAMS[p3.color].color} 50%, ${TEAMS[p4.color].color} 50%)`
+                                                : (p3 ? TEAMS[p3.color].color : '#0a0a0a')
                                          }}>
-                                        {isSecondThirdTie ? 2 : 3}
+                                        {is2nd3rdTie ? 2 : 3}
+                                        {(is2nd3rdTie || is3rd4thTie) && <span className="text-[8px] block mt-1 tracking-tighter">TIE</span>}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* COMPACT CIRCULAR PROGRESS */}
                             <div className="f1-glass rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center shadow-2xl">
                                 <CircularProgress value={currentRound} max={24} />
-                                <p className="mt-4 text-[8px] font-black uppercase tracking-widest opacity-40 leading-relaxed">
-                                    2026 SEASON <br/> TIMELINE
-                                </p>
+                                <p className="mt-4 text-[8px] font-black uppercase tracking-widest opacity-40">2026 TIMELINE</p>
                             </div>
                         </div>
 
@@ -198,7 +183,7 @@
                                         <p className="text-[8px] font-black opacity-40 uppercase mb-1">{TEAMS[p.color].name}</p>
                                         <h4 className="text-xl font-black italic uppercase mb-4">{p.name}</h4>
                                         <div className="flex justify-between items-center bg-black/40 p-4 rounded-2xl">
-                                            <span className="text-[9px] font-bold opacity-30">ACCURACY</span>
+                                            <span className="text-[9px] font-bold opacity-30 uppercase">Accuracy</span>
                                             <span className="font-black f1-red text-xl italic">{getAcc(p)}%</span>
                                         </div>
                                     </div>
