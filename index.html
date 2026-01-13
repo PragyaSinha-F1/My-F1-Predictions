@@ -30,7 +30,7 @@
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
         const TEAMS = {
-            redbull: { name: 'Red Bull Ford', color: '#3671C6' }, ferrari: { name: 'Ferrari', color: '#F91536' },
+            redbull: { name: 'Red Bull', color: '#3671C6' }, ferrari: { name: 'Ferrari', color: '#F91536' },
             mclaren: { name: 'McLaren', color: '#FF8000' }, mercedes: { name: 'Mercedes', color: '#6CD3BF' },
             aston: { name: 'Aston Honda', color: '#229971' }, audi: { name: 'Audi F1', color: '#f5f5f5' }, 
             alpine: { name: 'Alpine', color: '#0093CC' }, haas: { name: 'Haas', color: '#B6BABD' },
@@ -103,9 +103,9 @@
 
             if (view === 'landing') return (
                 <div className="flex flex-col items-center justify-center min-h-screen p-6">
-                    <h1 className="text-4xl font-black uppercase f1-font italic mb-10">F1 <span className="f1-red">PREDICTIONS</span></h1>
+                    <h1 className="text-4xl font-black uppercase f1-font italic mb-10">🏎🏁F1 <span className="f1-red">PREDICTIONS</span></h1>
                     <div className="f1-glass p-8 rounded-3xl w-full max-w-sm border border-zinc-800 shadow-2xl mb-8">
-                        <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-8 text-center outline-none font-bold uppercase text-white" placeholder="ENTER ROOM CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
+                        <input className="w-full bg-transparent border-b border-zinc-800 p-4 mb-8 text-center outline-none font-bold uppercase text-white" placeholder="CREATE ROOM OR ENTER ROOM CODE" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
                         <button onClick={() => handleJoin(roomInput)} className="w-full f1-bg-red p-4 rounded-xl font-black uppercase text-sm">Join Paddock</button>
                     </div>
                     <div className="w-full max-w-sm space-y-2">
