@@ -5,7 +5,7 @@
   <title>F1 Paddock V2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Tailwind (CDN – OK for demo) -->
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- React -->
@@ -33,9 +33,9 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    /* ===============================
-       SUPABASE CONFIG (CORRECT)
-    =============================== */
+    /* =========================
+       SUPABASE (CORRECT)
+    ========================= */
     const SUPABASE_URL = "https://anlktalskporlebnghpp.supabase.co";
     const SUPABASE_ANON =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFubGt0YWxza3BvcmxlYm5naHBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3NDA0NTksImV4cCI6MjA4NDMxNjQ1OX0.fF8Li77jRqGqtTk2CRIXR1J1SS8AVb2YeuXzT-5J-Eg";
@@ -45,9 +45,9 @@
       SUPABASE_ANON
     );
 
-    /* ===============================
+    /* =========================
        APP
-    =============================== */
+    ========================= */
     function App() {
       const [view, setView] = useState("landing");
       const [roomCode, setRoomCode] = useState("");
@@ -56,46 +56,55 @@
       const [prediction, setPrediction] = useState("");
       const [predictions, setPredictions] = useState([]);
 
-      /* ===============================
-         CREATE ROOM
-      =============================== */
+      /* =========================
+         CREATE ROOM (FIXED)
+      ========================= */
       const createRoom = async () => {
         const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const { error } = await supabase
-          .from("rooms")
-          .insert({ code });
 
-        if (!error) {
-          setRoom({ code });
-          setRoomCode(code);
-          setView("room");
-        } else {
+        const { data, error } = await supabase
+          .from("rooms")
+          .insert({
+            code: code,
+            name: "Main Room"   // 🔴 REQUIRED FIELD (FIX)
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error(error);
           alert("Failed to create room");
+          return;
         }
+
+        setRoom(data);
+        setRoomCode(code);
+        setView("room");
       };
 
-      /* ===============================
+      /* =========================
          JOIN ROOM
-      =============================== */
+      ========================= */
       const joinRoom = async () => {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("rooms")
           .select("*")
           .eq("code", roomCode)
           .single();
 
-        if (data) {
-          setRoom(data);
-          setView("room");
-          loadPredictions(data.id);
-        } else {
+        if (error || !data) {
           alert("Room not found");
+          return;
         }
+
+        setRoom(data);
+        setView("room");
+        loadPredictions(data.id);
       };
 
-      /* ===============================
+      /* =========================
          LOAD PREDICTIONS
-      =============================== */
+      ========================= */
       const loadPredictions = async (roomId) => {
         const { data } = await supabase
           .from("predictions")
@@ -106,25 +115,32 @@
         setPredictions(data || []);
       };
 
-      /* ===============================
+      /* =========================
          ADD PREDICTION
-      =============================== */
+      ========================= */
       const addPrediction = async () => {
-        if (!prediction || !name) return;
+        if (!prediction || !name || !room) return;
 
-        await supabase.from("predictions").insert({
-          room_id: room.id,
-          user_name: name,
-          text: prediction
-        });
+        const { error } = await supabase
+          .from("predictions")
+          .insert({
+            room_id: room.id,
+            user_name: name,
+            text: prediction
+          });
+
+        if (error) {
+          alert("Failed to save prediction");
+          return;
+        }
 
         setPrediction("");
         loadPredictions(room.id);
       };
 
-      /* ===============================
+      /* =========================
          UI
-      =============================== */
+      ========================= */
       if (view === "landing") {
         return (
           <div className="min-h-screen flex items-center justify-center">
@@ -162,8 +178,8 @@
           <div className="max-w-xl mx-auto p-6">
             <div className="flex justify-between mb-4">
               <div>
-                Room Code:{" "}
-                <span className="text-red-500 font-mono">{room.code}</span>
+                Room:
+                <span className="ml-2 text-red-500 font-mono">{room.code}</span>
                 <button
                   className="ml-2 text-xs border px-2"
                   onClick={() => navigator.clipboard.writeText(room.code)}
