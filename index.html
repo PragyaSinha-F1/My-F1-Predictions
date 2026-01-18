@@ -5,31 +5,20 @@
   <title>F1 Paddock V2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- React -->
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Supabase -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
   <style>
-    body {
-      background:black;
-      color:white;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont;
-    }
+    body { background:black; color:white; }
     .glass {
       background: rgba(255,255,255,0.05);
       backdrop-filter: blur(16px);
       border: 1px solid rgba(255,255,255,0.1);
     }
-    .grad {
-      background: linear-gradient(90deg,#e10600,#ff3b3b);
-    }
+    .grad { background: linear-gradient(90deg,#e10600,#ff3b3b); }
   </style>
 </head>
 
@@ -44,216 +33,191 @@ const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 
 const supabase = supabase.createClient(SB_URL, SB_KEY);
 
-/* ===================== CONSTANTS ===================== */
+/* ===================== DATA ===================== */
 
 const TEAMS = {
-  ferrari: "#F91536",
-  redbull: "#3671C6",
-  mercedes: "#6CD3BF",
-  mclaren: "#FF8000",
-  aston: "#229971",
-  alpine: "#0093CC",
-  williams: "#64C4FF",
-  haas: "#B6BABD"
+  ferrari:"#F91536", redbull:"#3671C6", mercedes:"#6CD3BF",
+  mclaren:"#FF8000", aston:"#229971", alpine:"#0093CC",
+  williams:"#64C4FF", haas:"#B6BABD"
 };
-
-/* ===================== APP ===================== */
 
 const { useState, useEffect } = React;
 
+/* ===================== APP ===================== */
+
 function App() {
-  const [view, setView] = useState("landing");
-  const [room, setRoom] = useState(null);
-  const [participants, setParticipants] = useState([]);
-  const [name, setName] = useState("");
-  const [team, setTeam] = useState("ferrari");
-  const [roomInput, setRoomInput] = useState("");
-  const [raceList, setRaceList] = useState([]);
-  const [activeRace, setActiveRace] = useState(null);
+  const [view,setView]=useState("landing");
+  const [room,setRoom]=useState(null);
+  const [participants,setParticipants]=useState([]);
+  const [races,setRaces]=useState([]);
+  const [activeRace,setActiveRace]=useState(null);
+  const [predictions,setPredictions]=useState([]);
+  const [name,setName]=useState("");
+  const [team,setTeam]=useState("ferrari");
+  const [roomCode,setRoomCode]=useState("");
+  const [predText,setPredText]=useState("");
 
-  /* ========== F1 CALENDAR (LIVE) ========== */
-  useEffect(() => {
+  /* ---------- LOAD F1 CALENDAR ---------- */
+  useEffect(()=>{
     fetch("https://ergast.com/api/f1/current.json")
-      .then(r => r.json())
-      .then(data => {
-        const races = data.MRData.RaceTable.Races.map(r => ({
-          key: r.round,
-          name: r.raceName,
-          date: new Date(`${r.date}T${r.time || "00:00:00Z"}`)
+      .then(r=>r.json())
+      .then(d=>{
+        const rs=d.MRData.RaceTable.Races.map(r=>({
+          key:r.round,
+          name:r.raceName,
+          date:new Date(`${r.date}T${r.time||"00:00:00Z"}`)
         }));
-        setRaceList(races);
-        const upcoming = races.find(r => r.date > new Date());
-        setActiveRace(upcoming || races[0]);
+        setRaces(rs);
+        setActiveRace(rs.find(r=>r.date>new Date())||rs[0]);
       });
-  }, []);
+  },[]);
 
-  /* ========== ROOM CREATE ========== */
-  async function createRoom() {
-    const code = Math.random().toString(36).substring(2,8).toUpperCase();
-    const { data, error } = await supabase
-      .from("rooms")
-      .insert({ code, name: "F1 Championship" })
-      .select()
-      .single();
-
-    if (error) return alert(error.message);
-    setRoom(data);
-    setView("room");
+  /* ---------- ROOM ---------- */
+  async function createRoom(){
+    const code=Math.random().toString(36).substring(2,8).toUpperCase();
+    const {data}=await supabase.from("rooms").insert({code,name:"F1 Room"}).select().single();
+    setRoom(data); loadParticipants(data.id); setView("room");
+  }
+  async function joinRoom(){
+    const {data}=await supabase.from("rooms").select().eq("code",roomCode).single();
+    if(!data) return alert("Room not found");
+    setRoom(data); loadParticipants(data.id); setView("room");
+  }
+  async function loadParticipants(id){
+    const {data}=await supabase.from("participants").select().eq("room_id",id);
+    setParticipants(data||[]);
   }
 
-  /* ========== ROOM JOIN ========== */
-  async function joinRoom() {
-    const { data, error } = await supabase
-      .from("rooms")
-      .select()
-      .eq("code", roomInput.toUpperCase())
-      .single();
-
-    if (error) return alert("Room not found");
-    setRoom(data);
-    loadParticipants(data.id);
-    setView("room");
+  /* ---------- PARTICIPANTS ---------- */
+  async function addParticipant(){
+    if(!name) return;
+    await supabase.from("participants").insert({room_id:room.id,name,team_color:team});
+    setName(""); loadParticipants(room.id);
   }
 
-  async function loadParticipants(roomId) {
-    const { data } = await supabase
-      .from("participants")
-      .select()
-      .eq("room_id", roomId);
-    setParticipants(data || []);
-  }
+  /* ---------- PREDICTIONS ---------- */
+  useEffect(()=>{
+    if(room&&activeRace){
+      supabase.from("predictions")
+        .select("*,participants(name,team_color)")
+        .eq("race_key",activeRace.key)
+        .eq("room_id",room.id)
+        .then(({data})=>setPredictions(data||[]));
+    }
+  },[room,activeRace]);
 
-  /* ========== ADD PARTICIPANT ========== */
-  async function addParticipant() {
-    if (!name) return;
-    await supabase.from("participants").insert({
-      room_id: room.id,
-      name,
-      team_color: team
+  async function addPrediction(){
+    if(!predText) return;
+    await supabase.from("predictions").insert({
+      room_id:room.id,
+      race_key:activeRace.key,
+      text:predText
     });
-    setName("");
-    loadParticipants(room.id);
+    setPredText("");
+    const {data}=await supabase.from("predictions")
+      .select("*")
+      .eq("room_id",room.id)
+      .eq("race_key",activeRace.key);
+    setPredictions(data||[]);
   }
 
   /* ===================== UI ===================== */
 
-  if (view === "landing") {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-6">
-        <h1 className="text-4xl font-black">F1 PADDOCK</h1>
-
-        {activeRace && (
-          <div className="glass p-4 rounded-xl text-center">
-            <p className="text-sm text-gray-400">Next Race</p>
-            <p className="font-bold">{activeRace.name}</p>
-            <Countdown target={activeRace.date} />
-          </div>
-        )}
-
-        <div className="glass p-6 rounded-xl w-80">
-          <input
-            className="w-full p-3 mb-3 bg-black border border-gray-700"
-            placeholder="ROOM CODE"
-            value={roomInput}
-            onChange={e => setRoomInput(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <button onClick={createRoom} className="grad flex-1 p-3 font-bold">
-              Create
-            </button>
-            <button onClick={joinRoom} className="bg-white text-black flex-1 p-3 font-bold">
-              Join
-            </button>
-          </div>
+  if(view==="landing") return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-6">
+      <h1 className="text-4xl font-black">F1 PADDOCK</h1>
+      {activeRace&&<Countdown target={activeRace.date} />}
+      <div className="glass p-6 w-80 rounded-xl">
+        <input className="w-full p-3 bg-black border mb-2"
+          placeholder="ROOM CODE"
+          value={roomCode}
+          onChange={e=>setRoomCode(e.target.value)}
+        />
+        <div className="flex gap-2">
+          <button onClick={createRoom} className="grad flex-1 p-3 font-bold">Create</button>
+          <button onClick={joinRoom} className="bg-white text-black flex-1 p-3 font-bold">Join</button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (view === "room") {
-    return (
-      <div className="max-w-xl mx-auto p-6">
-        <div className="flex justify-between mb-4">
-          <div>
-            <p className="text-sm text-gray-400">Room Code</p>
-            <div className="flex gap-2 items-center">
-              <p className="font-mono text-red-500">{room.code}</p>
-              <button
-                onClick={() => navigator.clipboard.writeText(room.code)}
-                className="text-xs border px-2"
-              >
-                Copy
-              </button>
-            </div>
+  if(view==="room") return (
+    <div className="max-w-2xl mx-auto p-6 space-y-6">
+      <div className="flex justify-between">
+        <div>
+          <p className="text-xs text-gray-400">Room</p>
+          <div className="flex gap-2 items-center">
+            <p className="text-red-500 font-mono">{room.code}</p>
+            <button onClick={()=>navigator.clipboard.writeText(room.code)}
+              className="border px-2 text-xs">Copy</button>
           </div>
-          <button onClick={() => setView("landing")} className="text-sm text-gray-400">
-            Exit
-          </button>
         </div>
-
-        <div className="glass p-4 rounded-xl mb-6">
-          <input
-            className="w-full p-3 bg-black border mb-2"
-            placeholder="Your Name"
-            value={name}
-            onChange={e => setName(e.target.value)}
-          />
-          <select
-            className="w-full p-3 bg-black border mb-2"
-            value={team}
-            onChange={e => setTeam(e.target.value)}
-          >
-            {Object.keys(TEAMS).map(t => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-          <button onClick={addParticipant} className="grad w-full p-3 font-bold">
-            Join as Strategist
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {participants.map(p => (
-            <div
-              key={p.id}
-              className="glass p-4 rounded-xl border-l-4"
-              style={{ borderColor: TEAMS[p.team_color] }}
-            >
-              <p className="font-bold">{p.name}</p>
-              <p className="text-xs text-gray-400">{p.team_color}</p>
-            </div>
-          ))}
-        </div>
+        <button onClick={()=>setView("landing")} className="text-xs text-gray-400">Exit</button>
       </div>
-    );
-  }
+
+      <select className="w-full p-3 bg-black border"
+        value={activeRace?.key}
+        onChange={e=>setActiveRace(races.find(r=>r.key==e.target.value))}
+      >
+        {races.map(r=><option key={r.key} value={r.key}>{r.name}</option>)}
+      </select>
+
+      {activeRace&&<Countdown target={activeRace.date} />}
+
+      <div className="glass p-4 rounded-xl">
+        <input className="w-full p-2 bg-black border mb-2"
+          placeholder="Your name"
+          value={name}
+          onChange={e=>setName(e.target.value)}
+        />
+        <select className="w-full p-2 bg-black border mb-2"
+          value={team}
+          onChange={e=>setTeam(e.target.value)}
+        >
+          {Object.keys(TEAMS).map(t=><option key={t}>{t}</option>)}
+        </select>
+        <button onClick={addParticipant} className="grad w-full p-2 font-bold">
+          Join as Strategist
+        </button>
+      </div>
+
+      <div className="glass p-4 rounded-xl">
+        <input className="w-full p-2 bg-black border mb-2"
+          placeholder={`Prediction for ${activeRace.name}`}
+          value={predText}
+          onChange={e=>setPredText(e.target.value)}
+        />
+        <button onClick={addPrediction} className="grad w-full p-2 font-bold">
+          Add Prediction
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {predictions.map(p=>(
+          <div key={p.id} className="glass p-3 rounded-xl border-l-4"
+            style={{borderColor:TEAMS[p.participants?.team_color]}}>
+            <p className="font-bold">{p.participants?.name}</p>
+            <p className="text-sm text-gray-400">{p.text}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /* ===================== COUNTDOWN ===================== */
-
-function Countdown({ target }) {
-  const [time, setTime] = useState("");
-
-  useEffect(() => {
-    const i = setInterval(() => {
-      const diff = target - new Date();
-      if (diff <= 0) {
-        setTime("LIVE");
-        clearInterval(i);
-      } else {
-        const d = Math.floor(diff / 86400000);
-        const h = Math.floor(diff / 3600000) % 24;
-        const m = Math.floor(diff / 60000) % 60;
-        setTime(`${d}d ${h}h ${m}m`);
-      }
-    }, 1000);
-    return () => clearInterval(i);
-  }, [target]);
-
-  return <p className="font-mono">{time}</p>;
+function Countdown({target}){
+  const [t,setT]=useState("");
+  useEffect(()=>{
+    const i=setInterval(()=>{
+      const d=target-new Date();
+      if(d<=0){setT("LIVE");clearInterval(i);}
+      else setT(`${Math.floor(d/86400000)}d ${Math.floor(d/3600000)%24}h ${Math.floor(d/60000)%60}m`);
+    },1000);
+    return()=>clearInterval(i);
+  },[target]);
+  return <p className="font-mono text-center">{t}</p>;
 }
-
-/* ===================== RENDER ===================== */
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 
