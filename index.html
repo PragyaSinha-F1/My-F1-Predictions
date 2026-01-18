@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <title>F1 Paddock V2</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Tailwind -->
+  <!-- Tailwind (CDN – OK for demo) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- React -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
   <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -29,191 +30,189 @@
 <body>
   <div id="root"></div>
 
-<script type="text/babel">
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
-/* ===============================
-   SUPABASE CONFIG
-================================ */
-const supabase = supabaseJs.createClient(
-  "https://anlktalskporlebnghpp.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFubGt0YWxza3BvcmxlYm5naHBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3NDA0NTksImV4cCI6MjA4NDMxNjQ1OX0.fF8Li77jRqGqtTk2CRIXR1J1SS8AVb2YeuXzT-5J-Eg"
-);
+    /* ===============================
+       SUPABASE CONFIG (CORRECT)
+    =============================== */
+    const SUPABASE_URL = "https://anlktalskporlebnghpp.supabase.co";
+    const SUPABASE_ANON =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFubGt0YWxza3BvcmxlYm5naHBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3NDA0NTksImV4cCI6MjA4NDMxNjQ1OX0.fF8Li77jRqGqtTk2CRIXR1J1SS8AVb2YeuXzT-5J-Eg";
 
-/* ===============================
-   SAFE F1 CALENDAR (NO CORS)
-================================ */
-const RACES = [
-  { id: 1, name: "Bahrain GP", date: "2025-03-02T15:00:00Z" },
-  { id: 2, name: "Saudi Arabian GP", date: "2025-03-09T17:00:00Z" },
-  { id: 3, name: "Australian GP", date: "2025-03-23T05:00:00Z" },
-  { id: 4, name: "Japanese GP", date: "2025-04-06T05:00:00Z" }
-];
-
-/* ===============================
-   UTILS
-================================ */
-function generateCode() {
-  return Math.random().toString(36).substring(2, 7).toUpperCase();
-}
-
-function Countdown({ date }) {
-  const [time, setTime] = React.useState("");
-
-  React.useEffect(() => {
-    const i = setInterval(() => {
-      const diff = new Date(date) - new Date();
-      if (diff <= 0) {
-        setTime("Race started");
-        return;
-      }
-      const d = Math.floor(diff / 86400000);
-      const h = Math.floor((diff % 86400000) / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      setTime(`${d}d ${h}h ${m}m`);
-    }, 1000);
-    return () => clearInterval(i);
-  }, [date]);
-
-  return <div className="text-gray-400 mt-2">Starts in {time}</div>;
-}
-
-/* ===============================
-   MAIN APP
-================================ */
-function App() {
-  const [roomCode, setRoomCode] = React.useState("");
-  const [room, setRoom] = React.useState(null);
-  const [name, setName] = React.useState("");
-  const [team, setTeam] = React.useState("ferrari");
-  const [prediction, setPrediction] = React.useState("");
-  const [activeRace, setActiveRace] = React.useState(null);
-
-  React.useEffect(() => {
-    const next = RACES.find(r => new Date(r.date) > new Date()) || RACES[0];
-    setActiveRace(next);
-  }, []);
-
-  async function createRoom() {
-    const code = generateCode();
-    await supabase.from("rooms").insert({ code });
-    setRoomCode(code);
-    setRoom({ code });
-  }
-
-  async function joinRoom() {
-    const { data } = await supabase
-      .from("rooms")
-      .select("*")
-      .eq("code", roomCode)
-      .single();
-
-    if (data) setRoom(data);
-    else alert("Room not found");
-  }
-
-  async function joinAsStrategist() {
-    await supabase.from("participants").insert({
-      room_id: room.id,
-      name,
-      team_color: team
-    });
-  }
-
-  async function savePrediction() {
-    if (!activeRace) return;
-    await supabase.from("predictions").insert({
-      race_id: activeRace.id,
-      text: prediction
-    });
-    setPrediction("");
-    alert("Prediction saved");
-  }
-
-  if (!room) {
-    return (
-      <div className="h-screen flex flex-col items-center justify-center">
-        <h1 className="text-3xl mb-6">F1 PADDOCK</h1>
-        <input
-          className="bg-black border px-4 py-2 mb-3"
-          placeholder="Room code"
-          value={roomCode}
-          onChange={e => setRoomCode(e.target.value)}
-        />
-        <div className="flex gap-2">
-          <button onClick={createRoom} className="bg-red-600 px-6 py-2">Create</button>
-          <button onClick={joinRoom} className="bg-white text-black px-6 py-2">Join</button>
-        </div>
-      </div>
+    const supabase = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON
     );
-  }
 
-  return (
-    <div className="p-8 max-w-xl mx-auto">
-      <div className="flex justify-between mb-6">
-        <div>
-          Room <span className="text-red-500">{room.code}</span>
-          <button
-            onClick={() => navigator.clipboard.writeText(room.code)}
-            className="ml-2 border px-2"
-          >
-            Copy
-          </button>
-        </div>
-        <button onClick={() => location.reload()}>Exit</button>
-      </div>
+    /* ===============================
+       APP
+    =============================== */
+    function App() {
+      const [view, setView] = useState("landing");
+      const [roomCode, setRoomCode] = useState("");
+      const [room, setRoom] = useState(null);
+      const [name, setName] = useState("");
+      const [prediction, setPrediction] = useState("");
+      const [predictions, setPredictions] = useState([]);
 
-      <select
-        className="bg-black border p-2 w-full"
-        value={activeRace?.id || ""}
-        onChange={e =>
-          setActiveRace(RACES.find(r => r.id == e.target.value))
+      /* ===============================
+         CREATE ROOM
+      =============================== */
+      const createRoom = async () => {
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const { error } = await supabase
+          .from("rooms")
+          .insert({ code });
+
+        if (!error) {
+          setRoom({ code });
+          setRoomCode(code);
+          setView("room");
+        } else {
+          alert("Failed to create room");
         }
-      >
-        {RACES.map(r => (
-          <option key={r.id} value={r.id}>{r.name}</option>
-        ))}
-      </select>
+      };
 
-      {activeRace && <Countdown date={activeRace.date} />}
+      /* ===============================
+         JOIN ROOM
+      =============================== */
+      const joinRoom = async () => {
+        const { data } = await supabase
+          .from("rooms")
+          .select("*")
+          .eq("code", roomCode)
+          .single();
 
-      <div className="mt-6 border p-4">
-        <input
-          className="bg-black border p-2 w-full mb-2"
-          placeholder="Your name"
-          value={name}
-          onChange={e => setName(e.target.value)}
-        />
-        <select
-          className="bg-black border p-2 w-full mb-2"
-          value={team}
-          onChange={e => setTeam(e.target.value)}
-        >
-          <option value="ferrari">Ferrari</option>
-          <option value="redbull">Red Bull</option>
-          <option value="mercedes">Mercedes</option>
-        </select>
-        <button onClick={joinAsStrategist} className="bg-red-600 w-full py-2">
-          Join as Strategist
-        </button>
-      </div>
+        if (data) {
+          setRoom(data);
+          setView("room");
+          loadPredictions(data.id);
+        } else {
+          alert("Room not found");
+        }
+      };
 
-      <div className="mt-6 border p-4">
-        <input
-          className="bg-black border p-2 w-full mb-2"
-          placeholder={`Prediction for ${activeRace?.name || "race"}`}
-          value={prediction}
-          onChange={e => setPrediction(e.target.value)}
-        />
-        <button onClick={savePrediction} className="bg-red-600 w-full py-2">
-          Add Prediction
-        </button>
-      </div>
-    </div>
-  );
-}
+      /* ===============================
+         LOAD PREDICTIONS
+      =============================== */
+      const loadPredictions = async (roomId) => {
+        const { data } = await supabase
+          .from("predictions")
+          .select("*")
+          .eq("room_id", roomId)
+          .order("created_at");
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+        setPredictions(data || []);
+      };
 
-</script>
+      /* ===============================
+         ADD PREDICTION
+      =============================== */
+      const addPrediction = async () => {
+        if (!prediction || !name) return;
+
+        await supabase.from("predictions").insert({
+          room_id: room.id,
+          user_name: name,
+          text: prediction
+        });
+
+        setPrediction("");
+        loadPredictions(room.id);
+      };
+
+      /* ===============================
+         UI
+      =============================== */
+      if (view === "landing") {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="bg-zinc-900 p-6 rounded-xl w-80 text-center">
+              <h1 className="text-2xl font-bold mb-4">F1 PADDOCK</h1>
+
+              <input
+                className="w-full mb-3 p-2 bg-black border border-zinc-700 rounded"
+                placeholder="ROOM CODE"
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+              />
+
+              <div className="flex gap-2">
+                <button
+                  onClick={createRoom}
+                  className="flex-1 bg-red-600 p-2 rounded font-bold"
+                >
+                  Create
+                </button>
+                <button
+                  onClick={joinRoom}
+                  className="flex-1 bg-white text-black p-2 rounded font-bold"
+                >
+                  Join
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (view === "room" && room) {
+        return (
+          <div className="max-w-xl mx-auto p-6">
+            <div className="flex justify-between mb-4">
+              <div>
+                Room Code:{" "}
+                <span className="text-red-500 font-mono">{room.code}</span>
+                <button
+                  className="ml-2 text-xs border px-2"
+                  onClick={() => navigator.clipboard.writeText(room.code)}
+                >
+                  Copy
+                </button>
+              </div>
+              <button onClick={() => setView("landing")}>Exit</button>
+            </div>
+
+            <input
+              className="w-full mb-2 p-2 bg-black border border-zinc-700 rounded"
+              placeholder="Your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+
+            <input
+              className="w-full mb-2 p-2 bg-black border border-zinc-700 rounded"
+              placeholder="Your prediction"
+              value={prediction}
+              onChange={(e) => setPrediction(e.target.value)}
+            />
+
+            <button
+              onClick={addPrediction}
+              className="w-full bg-red-600 p-2 rounded font-bold mb-4"
+            >
+              Add Prediction
+            </button>
+
+            <div className="space-y-2">
+              {predictions.map((p) => (
+                <div
+                  key={p.id}
+                  className="border border-zinc-800 p-2 rounded"
+                >
+                  <b>{p.user_name}</b>: {p.text}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      return null;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
 </body>
 </html>
