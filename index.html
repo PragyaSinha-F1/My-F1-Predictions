@@ -4,84 +4,76 @@
   <meta charset="UTF-8" />
   <title>F1 Paddock V2</title>
 
-  <!-- Tailwind (OK for now) -->
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Supabase JS v2 (UMD – VERY IMPORTANT) -->
+  <!-- Supabase UMD (ONLY ONCE) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 
 <body class="bg-black text-white min-h-screen flex items-center justify-center">
 
-  <div class="w-full max-w-md space-y-6">
+<div class="w-full max-w-md space-y-6">
 
-    <h1 class="text-3xl font-bold text-center">F1 PADDOCK</h1>
+  <h1 class="text-3xl font-bold text-center">F1 PADDOCK</h1>
 
-    <!-- LANDING -->
-    <div id="landing" class="space-y-3">
-      <input id="roomName" placeholder="Room name"
-        class="w-full p-3 bg-black border rounded" />
+  <!-- LANDING -->
+  <div id="landing" class="space-y-3">
+    <input id="roomName" placeholder="Room name"
+      class="w-full p-3 bg-black border rounded" />
 
-      <div class="flex gap-2">
-        <button onclick="createRoom()"
-          class="w-1/2 bg-red-600 py-2 rounded">Create</button>
-        <button onclick="joinRoomPrompt()"
-          class="w-1/2 bg-white text-black py-2 rounded">Join</button>
-      </div>
+    <div class="flex gap-2">
+      <button onclick="createRoom()"
+        class="w-1/2 bg-red-600 py-2 rounded">Create</button>
+      <button onclick="joinRoomPrompt()"
+        class="w-1/2 bg-white text-black py-2 rounded">Join</button>
     </div>
-
-    <!-- ROOM -->
-    <div id="room" class="hidden space-y-4">
-      <div class="flex justify-between text-sm">
-        <span>Room: <b id="roomCode"></b></span>
-        <button onclick="copyCode()" class="underline">Copy</button>
-      </div>
-
-      <input id="userName" placeholder="Your name"
-        class="w-full p-3 bg-black border rounded" />
-
-      <select id="team"
-        class="w-full p-3 bg-black border rounded">
-        <option value="ferrari">Ferrari</option>
-        <option value="redbull">Red Bull</option>
-        <option value="mercedes">Mercedes</option>
-        <option value="mclaren">McLaren</option>
-      </select>
-
-      <button onclick="joinRoom()"
-        class="w-full bg-red-600 py-2 rounded">
-        Join as Strategist
-      </button>
-
-      <hr class="border-gray-700" />
-
-      <div>
-        <select id="raceSelect"
-          class="w-full p-2 bg-black border rounded mb-2"></select>
-
-        <input id="predictionText" placeholder="Your prediction"
-          class="w-full p-3 bg-black border rounded" />
-
-        <button onclick="addPrediction()"
-          class="w-full bg-red-600 py-2 rounded mt-2">
-          Add Prediction
-        </button>
-      </div>
-
-      <div>
-        <h3 class="font-bold mt-4">Predictions</h3>
-        <ul id="predictions" class="text-sm mt-2 space-y-1"></ul>
-      </div>
-    </div>
-
   </div>
+
+  <!-- ROOM -->
+  <div id="room" class="hidden space-y-4">
+    <div class="flex justify-between text-sm">
+      <span>Room: <b id="roomCode"></b></span>
+      <button onclick="copyCode()" class="underline">Copy</button>
+    </div>
+
+    <input id="userName" placeholder="Your name"
+      class="w-full p-3 bg-black border rounded" />
+
+    <select id="team"
+      class="w-full p-3 bg-black border rounded">
+      <option value="ferrari">Ferrari</option>
+      <option value="redbull">Red Bull</option>
+      <option value="mercedes">Mercedes</option>
+      <option value="mclaren">McLaren</option>
+    </select>
+
+    <button onclick="joinRoom()"
+      class="w-full bg-red-600 py-2 rounded">
+      Join as Strategist
+    </button>
+
+    <hr class="border-gray-700" />
+
+    <input id="predictionText" placeholder="Your prediction"
+      class="w-full p-3 bg-black border rounded" />
+
+    <button onclick="addPrediction()"
+      class="w-full bg-red-600 py-2 rounded">
+      Add Prediction
+    </button>
+
+    <ul id="predictions" class="text-sm space-y-1"></ul>
+  </div>
+
+</div>
 
 <script>
 /* ================= SUPABASE ================= */
 const SUPABASE_URL = "https://anlktalskporlebnghpp.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFubGt0YWxza3BvcmxlYm5naHBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3NDA0NTksImV4cCI6MjA4NDMxNjQ1OX0.fF8Li77jRqGqtTk2CRIXR1J1SS8AVb2YeuXzT-5J-Eg";
 
-const supabase = window.supabase.createClient(
+window.sb = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_KEY
 );
@@ -90,76 +82,54 @@ const supabase = window.supabase.createClient(
 let currentRoom = null;
 let participantId = null;
 
-/* ================= 2026 CALENDAR ================= */
-const races2026 = [
-  { key: "bahrain", name: "Bahrain GP" },
-  { key: "jeddah", name: "Saudi Arabian GP" },
-  { key: "melbourne", name: "Australian GP" },
-  { key: "suzuka", name: "Japanese GP" },
-  { key: "monaco", name: "Monaco GP" },
-  { key: "silverstone", name: "British GP" },
-  { key: "spa", name: "Belgian GP" },
-  { key: "monza", name: "Italian GP" },
-  { key: "singapore", name: "Singapore GP" },
-  { key: "austin", name: "United States GP" }
-];
-
-const raceSelect = document.getElementById("raceSelect");
-races2026.forEach(r => {
-  const o = document.createElement("option");
-  o.value = r.key;
-  o.textContent = r.name;
-  raceSelect.appendChild(o);
-});
-
-/* ================= ACTIONS ================= */
-function generateCode() {
+/* ================= HELPERS ================= */
+function code() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-async function createRoom() {
+/* ================= ACTIONS ================= */
+window.createRoom = async function () {
   const name = roomName.value || "F1 Room";
-  const code = generateCode();
+  const roomCode = code();
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("rooms")
-    .insert({ name, code })
+    .insert({ name, code: roomCode })
     .select()
     .single();
 
   if (error) return alert(error.message);
-
   enterRoom(data);
-}
+};
 
-async function joinRoomPrompt() {
-  const code = prompt("Enter room code:");
-  if (!code) return;
+window.joinRoomPrompt = async function () {
+  const c = prompt("Room code?");
+  if (!c) return;
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("rooms")
     .select()
-    .eq("code", code)
+    .eq("code", c)
     .single();
 
   if (error) return alert("Room not found");
   enterRoom(data);
-}
+};
 
 function enterRoom(room) {
   currentRoom = room;
   landing.classList.add("hidden");
-  roomDiv.classList.remove("hidden");
+  room.classList.remove("hidden");
   roomCode.textContent = room.code;
   loadPredictions();
 }
 
-async function joinRoom() {
+window.joinRoom = async function () {
   const name = userName.value;
   const teamColor = team.value;
   if (!name) return alert("Enter name");
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("participants")
     .insert({
       room_id: currentRoom.id,
@@ -171,53 +141,10 @@ async function joinRoom() {
 
   if (error) return alert(error.message);
   participantId = data.id;
-}
+};
 
-async function addPrediction() {
-  if (!participantId) return alert("Join room first");
+window.addPrediction = async function () {
+  if (!participantId) return alert("Join first");
 
   const text = predictionText.value;
-  if (!text) return;
-
-  const raceKey = raceSelect.value;
-
-  const { error } = await supabase
-    .from("predictions")
-    .insert({
-      room_id: currentRoom.id,
-      participant_id: participantId,
-      race_key: raceKey,
-      text
-    });
-
-  if (error) return alert(error.message);
-  predictionText.value = "";
-  loadPredictions();
-}
-
-async function loadPredictions() {
-  const { data } = await supabase
-    .from("predictions")
-    .select("text")
-    .eq("room_id", currentRoom.id);
-
-  predictions.innerHTML = "";
-  data?.forEach(p => {
-    const li = document.createElement("li");
-    li.textContent = "• " + p.text;
-    predictions.appendChild(li);
-  });
-}
-
-function copyCode() {
-  navigator.clipboard.writeText(currentRoom.code);
-  alert("Copied!");
-}
-
-/* ================= DOM SHORTCUTS ================= */
-const landing = document.getElementById("landing");
-const roomDiv = document.getElementById("room");
-</script>
-
-</body>
-</html>
+  if (
