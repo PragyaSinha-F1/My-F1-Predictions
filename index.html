@@ -3,280 +3,213 @@
 <head>
   <meta charset="UTF-8" />
   <title>F1 Paddock V2</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+  <!-- React -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Supabase -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
   <style>
-    body { background:black; color:white; }
-    .glass {
-      background: rgba(255,255,255,0.05);
-      backdrop-filter: blur(16px);
-      border: 1px solid rgba(255,255,255,0.1);
+    body {
+      background: black;
+      color: white;
+      font-family: system-ui, sans-serif;
     }
-    .grad { background: linear-gradient(90deg,#e10600,#ff3b3b); }
   </style>
 </head>
 
 <body>
-<div id="root"></div>
+  <div id="root"></div>
 
 <script type="text/babel">
 
-/* ===================== SUPABASE ===================== */
-const SB_URL = "https://anlktalskporlebnghpp.supabase.co";
-const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFubGt0YWxza3BvcmxlYm5naHBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3NDA0NTksImV4cCI6MjA4NDMxNjQ1OX0.fF8Li77jRqGqtTk2CRIXR1J1SS8AVb2YeuXzT-5J-Eg";
+/* ===============================
+   SUPABASE CONFIG
+================================ */
+const supabase = supabaseJs.createClient(
+  "https://anlktalskporlebnghpp.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFubGt0YWxza3BvcmxlYm5naHBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3NDA0NTksImV4cCI6MjA4NDMxNjQ1OX0.fF8Li77jRqGqtTk2CRIXR1J1SS8AVb2YeuXzT-5J-Eg"
+);
 
-const supabase = supabase.createClient(SB_URL, SB_KEY);
+/* ===============================
+   SAFE F1 CALENDAR (NO CORS)
+================================ */
+const RACES = [
+  { id: 1, name: "Bahrain GP", date: "2025-03-02T15:00:00Z" },
+  { id: 2, name: "Saudi Arabian GP", date: "2025-03-09T17:00:00Z" },
+  { id: 3, name: "Australian GP", date: "2025-03-23T05:00:00Z" },
+  { id: 4, name: "Japanese GP", date: "2025-04-06T05:00:00Z" }
+];
 
-const { useState, useEffect } = React;
+/* ===============================
+   UTILS
+================================ */
+function generateCode() {
+  return Math.random().toString(36).substring(2, 7).toUpperCase();
+}
 
-/* ===================== DATA ===================== */
+function Countdown({ date }) {
+  const [time, setTime] = React.useState("");
 
-const TEAMS = {
-  ferrari:"#F91536", redbull:"#3671C6", mercedes:"#6CD3BF",
-  mclaren:"#FF8000", aston:"#229971", alpine:"#0093CC",
-  williams:"#64C4FF", haas:"#B6BABD"
-};
+  React.useEffect(() => {
+    const i = setInterval(() => {
+      const diff = new Date(date) - new Date();
+      if (diff <= 0) {
+        setTime("Race started");
+        return;
+      }
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      setTime(`${d}d ${h}h ${m}m`);
+    }, 1000);
+    return () => clearInterval(i);
+  }, [date]);
 
-/* ===================== APP ===================== */
+  return <div className="text-gray-400 mt-2">Starts in {time}</div>;
+}
 
+/* ===============================
+   MAIN APP
+================================ */
 function App() {
-  const [view,setView]=useState("landing");
-  const [room,setRoom]=useState(null);
-  const [participants,setParticipants]=useState([]);
-  const [races,setRaces]=useState([]);
-  const [activeRace,setActiveRace]=useState(null);
-  const [predictions,setPredictions]=useState([]);
-  const [name,setName]=useState("");
-  const [team,setTeam]=useState("ferrari");
-  const [roomCode,setRoomCode]=useState("");
-  const [predText,setPredText]=useState("");
+  const [roomCode, setRoomCode] = React.useState("");
+  const [room, setRoom] = React.useState(null);
+  const [name, setName] = React.useState("");
+  const [team, setTeam] = React.useState("ferrari");
+  const [prediction, setPrediction] = React.useState("");
+  const [activeRace, setActiveRace] = React.useState(null);
 
-  /* ---------- LOAD F1 CALENDAR (CORS SAFE) ---------- */
-  useEffect(()=>{
-    fetch("https://raw.githubusercontent.com/ergast/f1db/master/f1db/races.json")
-      .then(r=>r.json())
-      .then(data=>{
-        const year=new Date().getFullYear();
-        const rs=data
-          .filter(r=>r.year===year)
-          .map(r=>({
-            key:r.round,
-            name:r.name,
-            date:new Date(r.date+"T00:00:00Z")
-          }));
-        setRaces(rs);
-        const upcoming=rs.find(r=>r.date>new Date());
-        setActiveRace(upcoming||rs[0]||null);
-      })
-      .catch(()=>{
-        setRaces([]);
-        setActiveRace(null);
-      });
-  },[]);
+  React.useEffect(() => {
+    const next = RACES.find(r => new Date(r.date) > new Date()) || RACES[0];
+    setActiveRace(next);
+  }, []);
 
-  /* ---------- ROOM ---------- */
-  async function createRoom(){
-    const code=Math.random().toString(36).substring(2,8).toUpperCase();
-    const {data,error}=await supabase
+  async function createRoom() {
+    const code = generateCode();
+    await supabase.from("rooms").insert({ code });
+    setRoomCode(code);
+    setRoom({ code });
+  }
+
+  async function joinRoom() {
+    const { data } = await supabase
       .from("rooms")
-      .insert({code,name:"F1 Room"})
-      .select()
+      .select("*")
+      .eq("code", roomCode)
       .single();
-    if(error){alert(error.message);return;}
-    setRoom(data);
-    loadParticipants(data.id);
-    setView("room");
+
+    if (data) setRoom(data);
+    else alert("Room not found");
   }
 
-  async function joinRoom(){
-    const {data,error}=await supabase
-      .from("rooms")
-      .select()
-      .eq("code",roomCode.toUpperCase())
-      .single();
-    if(error||!data){alert("Room not found");return;}
-    setRoom(data);
-    loadParticipants(data.id);
-    setView("room");
-  }
-
-  async function loadParticipants(id){
-    const {data}=await supabase
-      .from("participants")
-      .select()
-      .eq("room_id",id);
-    setParticipants(data||[]);
-  }
-
-  /* ---------- PARTICIPANTS ---------- */
-  async function addParticipant(){
-    if(!name||!room) return;
+  async function joinAsStrategist() {
     await supabase.from("participants").insert({
-      room_id:room.id,
+      room_id: room.id,
       name,
-      team_color:team
+      team_color: team
     });
-    setName("");
-    loadParticipants(room.id);
   }
 
-  /* ---------- PREDICTIONS ---------- */
-  useEffect(()=>{
-    if(!room||!activeRace) return;
-    supabase
-      .from("predictions")
-      .select("*,participants(name,team_color)")
-      .eq("room_id",room.id)
-      .eq("race_key",activeRace.key)
-      .then(({data})=>setPredictions(data||[]));
-  },[room,activeRace]);
-
-  async function addPrediction(){
-    if(!predText||!room||!activeRace) return;
+  async function savePrediction() {
+    if (!activeRace) return;
     await supabase.from("predictions").insert({
-      room_id:room.id,
-      race_key:activeRace.key,
-      text:predText
+      race_id: activeRace.id,
+      text: prediction
     });
-    setPredText("");
-    const {data}=await supabase
-      .from("predictions")
-      .select("*,participants(name,team_color)")
-      .eq("room_id",room.id)
-      .eq("race_key",activeRace.key);
-    setPredictions(data||[]);
+    setPrediction("");
+    alert("Prediction saved");
   }
 
-  /* ===================== UI ===================== */
-
-  if(view==="landing") return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-6">
-      <h1 className="text-4xl font-black">F1 PADDOCK</h1>
-
-      {activeRace && <Countdown target={activeRace.date} />}
-
-      <div className="glass p-6 w-80 rounded-xl">
+  if (!room) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center">
+        <h1 className="text-3xl mb-6">F1 PADDOCK</h1>
         <input
-          className="w-full p-3 bg-black border mb-2"
-          placeholder="ROOM CODE"
+          className="bg-black border px-4 py-2 mb-3"
+          placeholder="Room code"
           value={roomCode}
-          onChange={e=>setRoomCode(e.target.value)}
+          onChange={e => setRoomCode(e.target.value)}
         />
         <div className="flex gap-2">
-          <button onClick={createRoom} className="grad flex-1 p-3 font-bold">
-            Create
-          </button>
-          <button onClick={joinRoom} className="bg-white text-black flex-1 p-3 font-bold">
-            Join
-          </button>
+          <button onClick={createRoom} className="bg-red-600 px-6 py-2">Create</button>
+          <button onClick={joinRoom} className="bg-white text-black px-6 py-2">Join</button>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  if(view==="room") return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <div className="flex justify-between">
+  return (
+    <div className="p-8 max-w-xl mx-auto">
+      <div className="flex justify-between mb-6">
         <div>
-          <p className="text-xs text-gray-400">Room</p>
-          <div className="flex gap-2 items-center">
-            <p className="text-red-500 font-mono">{room.code}</p>
-            <button
-              onClick={()=>navigator.clipboard.writeText(room.code)}
-              className="border px-2 text-xs"
-            >Copy</button>
-          </div>
+          Room <span className="text-red-500">{room.code}</span>
+          <button
+            onClick={() => navigator.clipboard.writeText(room.code)}
+            className="ml-2 border px-2"
+          >
+            Copy
+          </button>
         </div>
-        <button onClick={()=>setView("landing")} className="text-xs text-gray-400">
-          Exit
-        </button>
+        <button onClick={() => location.reload()}>Exit</button>
       </div>
 
-      {races.length>0 && (
-        <select
-          className="w-full p-3 bg-black border"
-          value={activeRace?.key||""}
-          onChange={e=>setActiveRace(races.find(r=>r.key==e.target.value))}
-        >
-          {races.map(r=>(
-            <option key={r.key} value={r.key}>{r.name}</option>
-          ))}
-        </select>
-      )}
+      <select
+        className="bg-black border p-2 w-full"
+        value={activeRace?.id || ""}
+        onChange={e =>
+          setActiveRace(RACES.find(r => r.id == e.target.value))
+        }
+      >
+        {RACES.map(r => (
+          <option key={r.id} value={r.id}>{r.name}</option>
+        ))}
+      </select>
 
-      {activeRace && <Countdown target={activeRace.date} />}
+      {activeRace && <Countdown date={activeRace.date} />}
 
-      <div className="glass p-4 rounded-xl">
+      <div className="mt-6 border p-4">
         <input
-          className="w-full p-2 bg-black border mb-2"
+          className="bg-black border p-2 w-full mb-2"
           placeholder="Your name"
           value={name}
-          onChange={e=>setName(e.target.value)}
+          onChange={e => setName(e.target.value)}
         />
         <select
-          className="w-full p-2 bg-black border mb-2"
+          className="bg-black border p-2 w-full mb-2"
           value={team}
-          onChange={e=>setTeam(e.target.value)}
+          onChange={e => setTeam(e.target.value)}
         >
-          {Object.keys(TEAMS).map(t=>(
-            <option key={t}>{t}</option>
-          ))}
+          <option value="ferrari">Ferrari</option>
+          <option value="redbull">Red Bull</option>
+          <option value="mercedes">Mercedes</option>
         </select>
-        <button onClick={addParticipant} className="grad w-full p-2 font-bold">
+        <button onClick={joinAsStrategist} className="bg-red-600 w-full py-2">
           Join as Strategist
         </button>
       </div>
 
-      <div className="glass p-4 rounded-xl">
+      <div className="mt-6 border p-4">
         <input
-          className="w-full p-2 bg-black border mb-2"
-          placeholder={`Prediction for ${activeRace?.name || "Selected Race"}`}
-          value={predText}
-          onChange={e=>setPredText(e.target.value)}
+          className="bg-black border p-2 w-full mb-2"
+          placeholder={`Prediction for ${activeRace?.name || "race"}`}
+          value={prediction}
+          onChange={e => setPrediction(e.target.value)}
         />
-        <button onClick={addPrediction} className="grad w-full p-2 font-bold">
+        <button onClick={savePrediction} className="bg-red-600 w-full py-2">
           Add Prediction
         </button>
       </div>
-
-      <div className="space-y-3">
-        {predictions.map(p=>(
-          <div
-            key={p.id}
-            className="glass p-3 rounded-xl border-l-4"
-            style={{borderColor:TEAMS[p.participants?.team_color]}}
-          >
-            <p className="font-bold">{p.participants?.name}</p>
-            <p className="text-sm text-gray-400">{p.text}</p>
-          </div>
-        ))}
-      </div>
     </div>
   );
-}
-
-/* ===================== COUNTDOWN ===================== */
-function Countdown({target}){
-  const [t,setT]=useState("");
-  useEffect(()=>{
-    const i=setInterval(()=>{
-      const d=target-new Date();
-      if(d<=0){setT("LIVE");clearInterval(i);}
-      else setT(
-        `${Math.floor(d/86400000)}d `+
-        `${Math.floor(d/3600000)%24}h `+
-        `${Math.floor(d/60000)%60}m`
-      );
-    },1000);
-    return()=>clearInterval(i);
-  },[target]);
-  return <p className="font-mono text-center">{t}</p>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
