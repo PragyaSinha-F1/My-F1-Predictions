@@ -1,238 +1,262 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F1 Paddock 2026</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <style>
-        @import url('https://fonts.cdnfonts.com/css/formula1');
-        body { background-color: black; color: white; font-family: 'Formula1 Display', sans-serif; overflow-x: hidden; }
-        .f1-italic { font-family: 'Formula1 Display', sans-serif; font-weight: 900; }
-        .f1-glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .f1-gradient { background: linear-gradient(90deg, #e10600 0%, #ff3b3b 100%); }
-        input::placeholder { color: #555; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.1em; }
-    </style>
+  <meta charset="UTF-8" />
+  <title>F1 Paddock V2</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Supabase -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      background:black;
+      color:white;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont;
+    }
+    .glass {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .grad {
+      background: linear-gradient(90deg,#e10600,#ff3b3b);
+    }
+  </style>
 </head>
+
 <body>
-    <div id="root"></div>
+<div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-        
-        // INTEGRATED SUPABASE KEYS
-        const SB_URL = "https://gyzflcxqehesojhimokd.supabase.co"; 
-        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5emZsY3hxZWhlc29qaGltb2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMzQ4MjcsImV4cCI6MjA4MzcxMDgyN30.fOW7qr9cNEUp6otJU2f-tXtOJxRX4Wge9R76OXE-_Tk";
+<script type="text/babel">
 
-        const sb = supabase.createClient(SB_URL, SB_KEY);
+/* ===================== SUPABASE ===================== */
+const SB_URL = "https://anlktalskporlebnghpp.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFubGt0YWxza3BvcmxlYm5naHBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3NDA0NTksImV4cCI6MjA4NDMxNjQ1OX0.fF8Li77jRqGqtTk2CRIXR1J1SS8AVb2YeuXzT-5J-Eg";
 
-        const TEAM_CONFIG = {
-            redbull: { name: 'Red Bull', color: '#3671C6' },
-            ferrari: { name: 'Ferrari', color: '#F91536' },
-            mclaren: { name: 'McLaren', color: '#FF8000' },
-            mercedes: { name: 'Mercedes', color: '#6CD3BF' },
-            aston: { name: 'Aston Martin', color: '#229971' },
-            audi: { name: 'Audi F1', color: '#000000' }, 
-            alpine: { name: 'Alpine', color: '#0093CC' },
-            haas: { name: 'Haas', color: '#B6BABD' },
-            williams: { name: 'Williams', color: '#64C4FF' },
-            rb: { name: 'Racing Bulls', color: '#6692FF' },
-            andretti: { name: 'Andretti', color: '#FFFFFF' }
-        };
+const supabase = supabaseJs.createClient(SB_URL, SB_KEY);
 
-        function App() {
-            const [view, setView] = useState('landing');
-            const [room, setRoom] = useState(null);
-            const [participants, setParticipants] = useState([]);
-            const [activeUser, setActiveUser] = useState(null);
-            const [myRooms, setMyRooms] = useState([]);
-            const [inputRoom, setInputRoom] = useState('');
-            const [inputUser, setInputUser] = useState('');
-            const [inputPred, setInputPred] = useState('');
-            const [selectedColor, setSelectedColor] = useState('redbull');
+/* ===================== CONSTANTS ===================== */
 
-            useEffect(() => {
-                const saved = localStorage.getItem('f1_paddock_history');
-                if (saved) setMyRooms(JSON.parse(saved));
-            }, []);
+const TEAMS = {
+  ferrari: "#F91536",
+  redbull: "#3671C6",
+  mercedes: "#6CD3BF",
+  mclaren: "#FF8000",
+  aston: "#229971",
+  alpine: "#0093CC",
+  williams: "#64C4FF",
+  haas: "#B6BABD"
+};
 
-            const getAccuracy = (p) => {
-                if (!p || !p.predictions || p.predictions.length === 0) return 0;
-                const correct = p.predictions.filter(x => x.done).length;
-                return Math.round((correct / p.predictions.length) * 100);
-            };
+/* ===================== APP ===================== */
 
-            const sync = async (newList) => {
-                setParticipants(newList);
-                await sb.from('f1_rooms').update({ data: { participants: newList } }).eq('code', room.code);
-            };
+const { useState, useEffect } = React;
 
-            const handleCreate = async () => {
-                const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-                const roomName = inputRoom || "2026 Championship";
-                try {
-                    const { data, error } = await sb.from('f1_rooms').insert([{ code, name: roomName, data: { participants: [] } }]).select();
-                    if (error) throw error;
-                    if (data) {
-                        setRoom(data[0]);
-                        setParticipants([]);
-                        const history = [{code, name: roomName, isOwner: true}, ...myRooms.filter(r => r.code !== code)];
-                        setMyRooms(history);
-                        localStorage.setItem('f1_paddock_history', JSON.stringify(history));
-                        setView('dashboard');
-                    }
-                } catch (e) { alert("Error: Make sure 'f1_rooms' table exists in Supabase!"); }
-            };
+function App() {
+  const [view, setView] = useState("landing");
+  const [room, setRoom] = useState(null);
+  const [participants, setParticipants] = useState([]);
+  const [name, setName] = useState("");
+  const [team, setTeam] = useState("ferrari");
+  const [roomInput, setRoomInput] = useState("");
+  const [raceList, setRaceList] = useState([]);
+  const [activeRace, setActiveRace] = useState(null);
 
-            const handleJoin = async (targetCode = null) => {
-                const code = targetCode || inputRoom.toUpperCase();
-                const { data } = await sb.from('f1_rooms').select().eq('code', code).single();
-                if (data) {
-                    setRoom(data);
-                    setParticipants(data.data.participants || []);
-                    const history = [{code, name: data.name, isOwner: false}, ...myRooms.filter(r => r.code !== code)];
-                    setMyRooms(history.slice(0, 5));
-                    localStorage.setItem('f1_paddock_history', JSON.stringify(history.slice(0, 5)));
-                    setView('dashboard');
-                } else { alert("Room not found!"); }
-            };
+  /* ========== F1 CALENDAR (LIVE) ========== */
+  useEffect(() => {
+    fetch("https://ergast.com/api/f1/current.json")
+      .then(r => r.json())
+      .then(data => {
+        const races = data.MRData.RaceTable.Races.map(r => ({
+          key: r.round,
+          name: r.raceName,
+          date: new Date(`${r.date}T${r.time || "00:00:00Z"}`)
+        }));
+        setRaceList(races);
+        const upcoming = races.find(r => r.date > new Date());
+        setActiveRace(upcoming || races[0]);
+      });
+  }, []);
 
-            const deleteLocalRoom = (e, code) => {
-                e.stopPropagation();
-                if(confirm("Remove from history?")) {
-                    const filtered = myRooms.filter(r => r.code !== code);
-                    setMyRooms(filtered);
-                    localStorage.setItem('f1_paddock_history', JSON.stringify(filtered));
-                }
-            };
+  /* ========== ROOM CREATE ========== */
+  async function createRoom() {
+    const code = Math.random().toString(36).substring(2,8).toUpperCase();
+    const { data, error } = await supabase
+      .from("rooms")
+      .insert({ code, name: "F1 Championship" })
+      .select()
+      .single();
 
-            if (view === 'landing') return (
-                <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center">
-                    <h1 className="text-6xl font-black italic tracking-tighter mb-2">🏎🏁F1<span className="text-[#e10600]">PADDOCK</span></h1>
-                    <p className="text-zinc-500 font-bold uppercase tracking-[0.3em] text-[10px] mb-12">2026 Regulation Era</p>
-                    
-                    <div className="f1-glass p-8 rounded-[2rem] shadow-2xl mb-8 w-full max-w-sm">
-                        <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl mb-4 text-center uppercase font-bold text-white outline-none focus:border-[#e10600]" 
-                               placeholder="ROOM NAME OR CODE" value={inputRoom} onChange={e => setInputRoom(e.target.value)} />
-                        <div className="grid grid-cols-2 gap-4">
-                            <button onClick={handleCreate} className="f1-gradient p-4 rounded-xl font-black uppercase text-xs text-white">Create</button>
-                            <button onClick={() => handleJoin()} className="bg-white text-black p-4 rounded-xl font-black uppercase text-xs">Join</button>
-                        </div>
-                    </div>
+    if (error) return alert(error.message);
+    setRoom(data);
+    setView("room");
+  }
 
-                    <div className="w-full max-w-sm space-y-2">
-                        {myRooms.map(r => (
-                            <div key={r.code} className="f1-glass p-4 rounded-xl flex justify-between items-center cursor-pointer hover:border-zinc-700" onClick={() => handleJoin(r.code)}>
-                                <div className="text-left"><p className="text-xs font-bold text-white uppercase">{r.name}</p><p className="text-[#e10600] text-[10px] font-mono">{r.code}</p></div>
-                                <button onClick={(e) => deleteLocalRoom(e, r.code)} className="text-lg">🗑️</button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
+  /* ========== ROOM JOIN ========== */
+  async function joinRoom() {
+    const { data, error } = await supabase
+      .from("rooms")
+      .select()
+      .eq("code", roomInput.toUpperCase())
+      .single();
 
-            if (view === 'dashboard') {
-                const sorted = [...participants].sort((a, b) => getAccuracy(b) - getAccuracy(a));
-                const p1 = sorted[0]; const p2 = sorted[1]; const p3 = sorted[2];
-                const acc2 = getAccuracy(p2); const acc3 = getAccuracy(p3);
-                const tie23 = p2 && p3 && acc2 === acc3 && acc2 !== 0;
+    if (error) return alert("Room not found");
+    setRoom(data);
+    loadParticipants(data.id);
+    setView("room");
+  }
 
-                return (
-                    <div className="max-w-2xl mx-auto p-6 py-12">
-                        <div className="flex justify-between items-center mb-10">
-                            <div><h2 className="text-3xl font-black italic uppercase text-white leading-none">{room.name}</h2>
-                            <p className="text-[#e10600] text-[10px] font-bold tracking-widest mt-2 uppercase">Code: {room.code}</p></div>
-                            <button onClick={() => setView('landing')} className="text-zinc-600 text-[10px] font-bold uppercase hover:text-white">Exit</button>
-                        </div>
+  async function loadParticipants(roomId) {
+    const { data } = await supabase
+      .from("participants")
+      .select()
+      .eq("room_id", roomId);
+    setParticipants(data || []);
+  }
 
-                        <div className="f1-glass p-8 rounded-[2.5rem] mb-12 text-center border-zinc-800 shadow-2xl">
-                            <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest mb-10">Live Standings</p>
-                            <div className="flex items-end justify-center gap-4 h-48">
-                                <div className="flex-1 max-w-[140px]">
-                                    <p className="text-[10px] font-black mb-2 truncate text-white">{tie23 ? `${p2.name} & ${p3.name}` : (p2?.name || '-')}</p>
-                                    <div className="rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic transition-all duration-500"
-                                         style={{ height: '90px', boxShadow: p2 ? `0 -10px 20px ${TEAM_CONFIG[p2.color].color}33` : 'none',
-                                                  background: tie23 ? `repeating-linear-gradient(45deg, ${TEAM_CONFIG[p2.color].color}, ${TEAM_CONFIG[p2.color].color} 15px, ${TEAM_CONFIG[p3.color].color} 15px, ${TEAM_CONFIG[p3.color].color} 30px)` : (p2 ? TEAM_CONFIG[p2.color].color : '#222') }}>
-                                        {tie23 ? '=' : '2'}
-                                    </div>
-                                    <p className="mt-2 text-[10px] font-bold text-zinc-400">{p2 ? acc2 : 0}%</p>
-                                </div>
-                                <div className="flex-1 max-w-[120px]">
-                                    <p className="text-xs font-black mb-2 truncate text-white uppercase">{p1?.name || '-'}</p>
-                                    <div className="rounded-t-lg flex items-center justify-center font-black text-4xl text-black/40 italic transition-all shadow-xl"
-                                         style={{ height: '120px', background: p1 ? TEAM_CONFIG[p1.color].color : '#333', borderTop: '3px solid white' }}>1</div>
-                                    <p className="mt-2 text-xs font-black text-white">{p1 ? getAccuracy(p1) : 0}%</p>
-                                </div>
-                                {!tie23 && (
-                                    <div className="flex-1 max-w-[100px]">
-                                        <p className="text-[10px] font-black mb-2 truncate text-white">{p3?.name || '-'}</p>
-                                        <div className="rounded-t-lg flex items-center justify-center font-black text-2xl text-black/50 italic transition-all"
-                                             style={{ height: '70px', background: p3 ? TEAM_CONFIG[p3.color].color : '#111' }}>3</div>
-                                        <p className="mt-2 text-[10px] font-bold text-zinc-400">{p3 ? getAccuracy(p3) : 0}%</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+  /* ========== ADD PARTICIPANT ========== */
+  async function addParticipant() {
+    if (!name) return;
+    await supabase.from("participants").insert({
+      room_id: room.id,
+      name,
+      team_color: team
+    });
+    setName("");
+    loadParticipants(room.id);
+  }
 
-                        <div className="f1-glass p-8 rounded-[2rem] mb-12 border-zinc-800">
-                            <input className="w-full bg-black border border-zinc-800 p-4 rounded-xl text-white mb-6 outline-none focus:border-[#e10600]" placeholder="NAME" value={inputUser} onChange={e => setInputUser(e.target.value)} />
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-8">
-                                {Object.entries(TEAM_CONFIG).map(([id, team]) => (
-                                    <button key={id} onClick={() => setSelectedColor(id)} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${selectedColor === id ? 'bg-zinc-800 border-white scale-105' : 'border-zinc-900 opacity-40 hover:opacity-100'}`}>
-                                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background: team.color}} />
-                                        <span className="text-[10px] font-bold uppercase text-white truncate">{team.name}</span>
-                                    </button>
-                                ))}
-                            </div>
-                            <button onClick={() => { if(!inputUser) return; const nl = [...participants, {id: Date.now(), name: inputUser, color: selectedColor, predictions: []}]; sync(nl); setInputUser(''); }} className="w-full f1-gradient p-4 rounded-xl font-black uppercase text-xs text-white">Add Strategist</button>
-                        </div>
+  /* ===================== UI ===================== */
 
-                        <div className="space-y-4">
-                            {participants.map(p => (
-                                <div key={p.id} onClick={() => { setActiveUser(p); setView('predictions'); }} className="f1-glass p-6 rounded-2xl flex justify-between items-center cursor-pointer border-l-4 hover:bg-zinc-900/50" style={{borderLeftColor: TEAM_CONFIG[p.color].color}}>
-                                    <div><p className="text-xl font-black text-white italic uppercase leading-none">{p.name}</p>
-                                    <p className="text-[10px] text-zinc-500 font-bold mt-1 uppercase">{TEAM_CONFIG[p.color].name} Strategist</p></div>
-                                    <span className="text-[10px] font-bold text-zinc-400 bg-zinc-900 px-3 py-1 rounded-full">{getAccuracy(p)}% Accuracy</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-            }
+  if (view === "landing") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-6">
+        <h1 className="text-4xl font-black">F1 PADDOCK</h1>
 
-            if (view === 'predictions') return (
-                <div className="max-w-2xl mx-auto p-6 py-12">
-                    <button onClick={() => setView('dashboard')} className="text-zinc-500 font-bold text-[10px] uppercase mb-12">← Back</button>
-                    <div className="p-10 rounded-[2.5rem] mb-12 flex justify-between items-center" style={{background: `linear-gradient(135deg, ${TEAM_CONFIG[activeUser.color].color}33 0%, transparent 100%)`, border: '1px solid rgba(255,255,255,0.1)'}}>
-                        <div><h1 className="text-5xl font-black italic uppercase text-white leading-none">{activeUser.name}</h1>
-                        <p className="text-[10px] font-bold opacity-60 tracking-[0.3em] mt-3 uppercase">LISTED PREDICTIONS</p></div>
-                        <p className="text-4xl font-black italic text-white">{getAccuracy(activeUser)}%</p>
-                    </div>
-                    <div className="flex gap-3 mb-12">
-                        <input className="flex-1 f1-glass p-5 rounded-2xl bg-transparent border-zinc-800 text-white outline-none focus:border-[#e10600]" placeholder="NEW PREDICTION..." value={inputPred} onChange={e => setInputPred(e.target.value)} onKeyPress={e => e.key === 'Enter'} />
-                        <button onClick={async () => { if(!inputPred) return; const nl = participants.map(p => p.id === activeUser.id ? {...p, predictions: [...p.predictions, {id: Date.now(), text: inputPred, done: false}]} : p); await sync(nl); setActiveUser(nl.find(u => u.id === activeUser.id)); setInputPred(''); }} className="f1-gradient px-8 rounded-2xl font-black uppercase text-xs text-white">Add</button>
-                    </div>
-                    <div className="space-y-3">
-                        {activeUser.predictions.map(pr => (
-                            <div key={pr.id} className="f1-glass p-6 rounded-2xl flex items-center justify-between border-zinc-900">
-                                <div className="flex items-center gap-6 cursor-pointer flex-1" onClick={async () => { const nl = participants.map(p => p.id === activeUser.id ? {...p, predictions: p.predictions.map(x => x.id === pr.id ? {...x, done: !x.done} : x)} : p); await sync(nl); setActiveUser(nl.find(u => u.id === activeUser.id)); }}>
-                                    <div className={`w-6 h-6 rounded flex items-center justify-center border-2 ${pr.done ? 'bg-green-500 border-green-500' : 'border-zinc-700'}`}>{pr.done && <span className="text-black font-black text-xs">✓</span>}</div>
-                                    <span className={`text-lg ${pr.done ? 'text-zinc-600 line-through' : 'text-white'}`}>{pr.text}</span>
-                                </div>
-                                <button onClick={async () => { if(!confirm("Delete?")) return; const nl = participants.map(p => p.id === activeUser.id ? {...p, predictions: p.predictions.filter(x => x.id !== pr.id)} : p); await sync(nl); setActiveUser(nl.find(u => u.id === activeUser.id)); }} className="text-zinc-700 hover:text-red-500 text-xl font-bold p-2">✕</button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        }
+        {activeRace && (
+          <div className="glass p-4 rounded-xl text-center">
+            <p className="text-sm text-gray-400">Next Race</p>
+            <p className="font-bold">{activeRace.name}</p>
+            <Countdown target={activeRace.date} />
+          </div>
+        )}
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+        <div className="glass p-6 rounded-xl w-80">
+          <input
+            className="w-full p-3 mb-3 bg-black border border-gray-700"
+            placeholder="ROOM CODE"
+            value={roomInput}
+            onChange={e => setRoomInput(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <button onClick={createRoom} className="grad flex-1 p-3 font-bold">
+              Create
+            </button>
+            <button onClick={joinRoom} className="bg-white text-black flex-1 p-3 font-bold">
+              Join
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === "room") {
+    return (
+      <div className="max-w-xl mx-auto p-6">
+        <div className="flex justify-between mb-4">
+          <div>
+            <p className="text-sm text-gray-400">Room Code</p>
+            <div className="flex gap-2 items-center">
+              <p className="font-mono text-red-500">{room.code}</p>
+              <button
+                onClick={() => navigator.clipboard.writeText(room.code)}
+                className="text-xs border px-2"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+          <button onClick={() => setView("landing")} className="text-sm text-gray-400">
+            Exit
+          </button>
+        </div>
+
+        <div className="glass p-4 rounded-xl mb-6">
+          <input
+            className="w-full p-3 bg-black border mb-2"
+            placeholder="Your Name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+          />
+          <select
+            className="w-full p-3 bg-black border mb-2"
+            value={team}
+            onChange={e => setTeam(e.target.value)}
+          >
+            {Object.keys(TEAMS).map(t => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <button onClick={addParticipant} className="grad w-full p-3 font-bold">
+            Join as Strategist
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {participants.map(p => (
+            <div
+              key={p.id}
+              className="glass p-4 rounded-xl border-l-4"
+              style={{ borderColor: TEAMS[p.team_color] }}
+            >
+              <p className="font-bold">{p.name}</p>
+              <p className="text-xs text-gray-400">{p.team_color}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+}
+
+/* ===================== COUNTDOWN ===================== */
+
+function Countdown({ target }) {
+  const [time, setTime] = useState("");
+
+  useEffect(() => {
+    const i = setInterval(() => {
+      const diff = target - new Date();
+      if (diff <= 0) {
+        setTime("LIVE");
+        clearInterval(i);
+      } else {
+        const d = Math.floor(diff / 86400000);
+        const h = Math.floor(diff / 3600000) % 24;
+        const m = Math.floor(diff / 60000) % 60;
+        setTime(`${d}d ${h}h ${m}m`);
+      }
+    }, 1000);
+    return () => clearInterval(i);
+  }, [target]);
+
+  return <p className="font-mono">{time}</p>;
+}
+
+/* ===================== RENDER ===================== */
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
+</script>
 </body>
 </html>
