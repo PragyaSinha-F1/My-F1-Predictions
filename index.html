@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F1 Paddock Pro 2026</title>
+    <title>F1 Paddock Predictor 2026</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -12,14 +12,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         :root { --f1-red: #e10600; }
-        body { background-color: #050505; color: #ffffff; font-family: 'Inter', sans-serif; }
+        body { background-color: #050505; color: #ffffff; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         .f1-font { font-family: 'Orbitron', sans-serif; text-transform: uppercase; font-style: italic; }
         .glow-text { text-shadow: 0 0 15px rgba(225, 6, 0, 0.7); }
         .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.08); }
         .podium-bar { transition: height 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .progress-circle { transform: rotate(-90deg); transition: stroke-dashoffset 0.6s ease; }
-        .f1-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; outline: none; }
-        .f1-input:focus { border-color: var(--f1-red); }
+        .f1-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; outline: none; color: white; }
     </style>
 </head>
 <body>
@@ -39,7 +37,6 @@
         };
 
         const App = () => {
-            // ALL HOOKS MUST BE AT THE TOP LEVEL
             const [view, setView] = useState('lander');
             const [room, setRoom] = useState(null);
             const [activeSubId, setActiveSubId] = useState(null);
@@ -50,7 +47,7 @@
             const [localRooms, setLocalRooms] = useState([]);
 
             useEffect(() => {
-                const stored = JSON.parse(localStorage.getItem('f1_paddock_v7') || '[]');
+                const stored = JSON.parse(localStorage.getItem('f1_paddock_v8') || '[]');
                 setLocalRooms(stored);
             }, []);
 
@@ -64,22 +61,18 @@
             }, [room?.code]);
 
             const updateDB = async (payload) => {
-                // Fixed the 406 Error by ensuring headers and selection are clean
                 const { data, error } = await sb.from('f1_rooms').update(payload).eq('code', room.code).select().single();
                 if (!error) setRoom(data);
-                else console.error("Update Error:", error);
             };
 
             const joinRoom = async (code) => {
-                const { data, error } = await sb.from('f1_rooms').select().eq('code', code.toUpperCase()).single();
+                const { data } = await sb.from('f1_rooms').select().eq('code', code.toUpperCase()).single();
                 if (data) {
                     setRoom(data);
                     setView('room');
                     const updated = [{code: data.code, name: data.name}, ...localRooms.filter(x => x.code !== data.code)];
-                    localStorage.setItem('f1_paddock_v7', JSON.stringify(updated.slice(0,5)));
+                    localStorage.setItem('f1_paddock_v8', JSON.stringify(updated.slice(0,5)));
                     setLocalRooms(updated);
-                } else {
-                    alert("Room Code not found!");
                 }
             };
 
@@ -93,56 +86,156 @@
                 return t === 0 ? 0 : Math.round((c/t)*100);
             };
 
-            // --- UI SUB-COMPONENTS ---
-            
+            // View: Lander
             if (view === 'lander') return (
-                <div className="max-w-md mx-auto p-6 pt-16">
+                <div className="max-w-md mx-auto p-6 pt-16 animate-fade-in">
                     <h1 className="f1-font text-center text-5xl mb-12 glow-text">F1 <span className="text-red-600">PADDOCK</span></h1>
-                    <div className="glass rounded-[2rem] p-8 mb-8 flex flex-col items-center">
-                        <input className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-center mb-4 f1-font uppercase" placeholder="Enter Room Code" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
-                        <button onClick={() => joinRoom(roomInput)} className="w-full bg-red-600 py-4 rounded-xl f1-font font-bold mb-4">JOIN ROOM</button>
+                    <div className="glass rounded-[2rem] p-8 mb-8">
+                        <input className="w-full f1-input text-center mb-4 f1-font uppercase" placeholder="Enter Room Code" value={roomInput} onChange={e => setRoomInput(e.target.value)} />
+                        <button onClick={() => joinRoom(roomInput)} className="w-full bg-red-600 py-4 rounded-xl f1-font font-bold">JOIN ROOM</button>
                         <button onClick={async () => {
-                            const name = prompt("Enter Paddock Name:");
-                            if(!name) return;
-                            const code = Math.random().toString(36).substring(2,6).toUpperCase();
-                            const { data } = await sb.from('f1_rooms').insert([{ name, code, data: {participants:[], sub_rooms:[]} }]).select().single();
-                            if(data) joinRoom(code);
-                        }} className="text-xs opacity-50 f1-font underline">OR CREATE NEW</button>
+                            const n = prompt("Paddock Name?");
+                            if(!n) return;
+                            const c = Math.random().toString(36).substring(2,6).toUpperCase();
+                            const { data } = await sb.from('f1_rooms').insert([{ name: n, code: c, data: {participants:[], sub_rooms:[]} }]).select().single();
+                            if(data) joinRoom(c);
+                        }} className="w-full text-center mt-4 text-[10px] opacity-40 f1-font">Create New Paddock</button>
                     </div>
                     <div className="space-y-2">
                         {localRooms.map(r => (
-                            <div key={r.code} onClick={() => joinRoom(r.code)} className="glass p-4 rounded-xl flex justify-between cursor-pointer hover:bg-white/5">
+                            <div key={r.code} onClick={() => joinRoom(r.code)} className="glass p-4 rounded-xl flex justify-between cursor-pointer">
                                 <span className="f1-font text-xs italic">{r.name}</span>
-                                <span className="text-[10px] opacity-30 font-mono tracking-widest">#{r.code}</span>
+                                <span className="text-[10px] opacity-30 font-mono">#{r.code}</span>
                             </div>
                         ))}
                     </div>
                 </div>
             );
 
-            if (view === 'room') {
+            // View: Main Room
+            if (view === 'room' && room) {
                 const sorted = [...(room.data.participants || [])].sort((a,b) => calculateAcc(b.id) - calculateAcc(a.id));
                 const podium = [sorted[1], sorted[0], sorted[2]];
                 return (
                     <div className="max-w-md mx-auto p-6">
                         <div className="flex justify-between items-center mb-10">
                             <button onClick={() => setView('lander')} className="text-[10px] opacity-40 f1-font">← Exit</button>
-                            <h2 className="f1-font text-xl italic glow-text">{room.name}</h2>
-                            <button onClick={() => setDrawerOpen(true)} className="bg-red-600 text-white px-3 py-1 rounded-lg text-[10px] f1-font">GRID</button>
+                            <h2 className="f1-font text-xl italic">{room.name}</h2>
+                            <button onClick={() => setDrawerOpen(true)} className="bg-red-600 px-3 py-1 rounded text-[10px] f1-font">GRID</button>
                         </div>
-
-                        <div className="flex items-end justify-center gap-2 h-48 mb-12 px-2">
+                        <div className="flex items-end justify-center gap-2 h-48 mb-12">
                             {podium.map((p, i) => (
                                 <div key={i} className="flex-1 flex flex-col items-center">
                                     <span className="text-[8px] font-bold mb-1 truncate w-full text-center">{p?.name || '---'}</span>
-                                    <div className="podium-bar w-full rounded-t-lg shadow-lg" style={{ 
-                                        height: p ? (i===1 ? '130px' : i===0 ? '85px' : '55px') : '20px',
+                                    <div className="podium-bar w-full rounded-t-lg" style={{ 
+                                        height: p ? (i===1 ? '130px' : i===0 ? '80px' : '50px') : '20px',
                                         backgroundColor: p ? TEAM_COLORS[p.team] : '#1a1a1a'
                                     }} />
-                                    <span className="text-[10px] mt-1 font-bold f1-font">{p ? calculateAcc(p.id) : 0}%</span>
+                                    <span className="text-[10px] mt-1 font-bold">{p ? calculateAcc(p.id) : 0}%</span>
                                 </div>
                             ))}
                         </div>
-
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="f1-font text-xs opacity-40">Sub Rooms / Races</h3>
+                            <button onClick={() => {
+                                const n = prompt("Race Name?");
+                                if(n) updateDB({ data: { ...room.data, sub_rooms: [...room.data.sub_rooms, {id: Date.now(), name: n, predictions: []}] } });
+                            }} className="bg-white text-black text-[10px] px-2 py-1 rounded font-bold">+ ADD</button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            {room.data.sub_rooms.map(s => (
+                                <div key={s.id} onClick={() => { setActiveSubId(s.id); setView('sub-room'); }} className="glass p-6 rounded-2xl text-center cursor-pointer">
+                                    <p className="f1-font text-[10px] italic">{s.name}</p>
+                                </div>
+                            ))}
+                        </div>
+                        {drawerOpen && (
+                            <div className="fixed inset-0 z-50 flex justify-end">
+                                <div className="absolute inset-0 bg-black/80" onClick={() => setDrawerOpen(false)} />
+                                <div className="relative w-64 bg-[#0a0a0a] p-6 border-l border-white/10 h-full">
+                                    <h3 className="f1-font text-xs mb-6">Manage Grid</h3>
+                                    <input id="n" className="f1-input w-full mb-2 text-xs" placeholder="Name" />
+                                    <select id="t" className="f1-input w-full mb-4 text-xs bg-black">
+                                        {Object.keys(TEAM_COLORS).map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
+                                    </select>
+                                    <button onClick={() => {
+                                        const name = document.getElementById('n').value;
+                                        const team = document.getElementById('t').value;
+                                        if(name) updateDB({ data: { ...room.data, participants: [...room.data.participants, {id: 'u'+Date.now(), name, team}] } });
+                                        setDrawerOpen(false);
+                                    }} className="w-full bg-red-600 py-3 rounded f1-font text-[10px]">Add Driver</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+
+            // View: Sub Room
+            if (view === 'sub-room') {
+                const sub = room.data.sub_rooms.find(s => s.id === activeSubId);
+                return (
+                    <div className="max-w-md mx-auto p-6">
+                        <button onClick={() => setView('room')} className="text-[10px] opacity-40 f1-font mb-8">← Back</button>
+                        <h2 className="f1-font text-3xl italic mb-10 text-center">{sub.name}</h2>
+                        <div className="space-y-3">
+                            {room.data.participants.map(p => (
+                                <div key={p.id} onClick={() => { setActiveUserId(p.id); setView('preds'); }} className="glass p-5 rounded-2xl flex justify-between items-center border-l-4" style={{borderColor: TEAM_COLORS[p.team]}}>
+                                    <span className="f1-font text-sm italic">{p.name}</span>
+                                    <span className="f1-font text-xl text-red-600">{calculateAcc(p.id, sub)}%</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            }
+
+            // View: Predictions
+            if (view === 'preds') {
+                const sub = room.data.sub_rooms.find(s => s.id === activeSubId);
+                const user = room.data.participants.find(u => u.id === activeUserId);
+                const userPreds = sub.predictions.filter(p => p.userId === user.id);
+                return (
+                    <div className="max-w-md mx-auto p-6">
+                        <button onClick={() => setView('sub-room')} className="text-[10px] opacity-40 f1-font mb-8">← Back</button>
+                        <h2 className="f1-font text-2xl mb-1 italic uppercase">{user.name}</h2>
+                        <p className="text-[10px] opacity-40 mb-8">{sub.name}</p>
+                        <div className="flex gap-2 mb-8">
+                            <input className="flex-1 f1-input text-sm" placeholder="New Prediction..." value={newPredText} onChange={e => setNewPredText(e.target.value)} />
+                            <button onClick={() => {
+                                if(!newPredText) return;
+                                const nP = { id: Date.now(), userId: user.id, text: newPredText, done: false };
+                                const nS = room.data.sub_rooms.map(s => s.id === activeSubId ? {...s, predictions: [...s.predictions, nP]} : s);
+                                updateDB({ data: { ...room.data, sub_rooms: nS } });
+                                setNewPredText('');
+                            }} className="bg-red-600 px-4 rounded f1-font text-[10px]">Add</button>
+                        </div>
+                        <div className="space-y-3">
+                            {userPreds.map(p => (
+                                <div key={p.id} className="glass p-4 rounded-xl flex justify-between items-center">
+                                    <span className={`text-sm italic ${p.done ? 'line-through opacity-20' : ''}`}>{p.text}</span>
+                                    <div className="flex gap-4">
+                                        <input type="checkbox" checked={p.done} onChange={() => {
+                                            const nS = room.data.sub_rooms.map(s => s.id === activeSubId ? {
+                                                ...s, predictions: s.predictions.map(pr => pr.id === p.id ? {...pr, done: !pr.done} : pr)
+                                            } : s);
+                                            updateDB({ data: { ...room.data, sub_rooms: nS } });
+                                        }} className="accent-red-600" />
+                                        <button onClick={() => {
+                                            const nS = room.data.sub_rooms.map(s => s.id === activeSubId ? {...s, predictions: s.predictions.filter(pr => pr.id !== p.id)} : s);
+                                            updateDB({ data: { ...room.data, sub_rooms: nS } });
+                                        }} className="text-red-600">✕</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            }
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
