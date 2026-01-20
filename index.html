@@ -18,7 +18,8 @@
         .f1-bg-red { background-color: #e10600; }
         .progress-ring__circle { transition: stroke-dashoffset 0.5s ease; transform: rotate(-90deg); transform-origin: 50% 50%; }
         select option { background-color: #111; color: white; }
-        .custom-modal { background: rgba(0,0,0,0.95); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(20px); }
+        .custom-modal { background: rgba(10, 10, 10, 0.98); border: 1px solid rgba(225, 6, 0, 0.3); backdrop-filter: blur(25px); box-shadow: 0 0 40px rgba(225, 6, 0, 0.1); }
+        .pillar { transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
     </style>
 </head>
 <body>
@@ -81,9 +82,11 @@
             const [timeLeft, setTimeLeft] = useState("");
             const [roomCodeInput, setRoomCodeInput] = useState('');
             const [savedRooms, setSavedRooms] = useState([]);
-            const [isNamingModal, setIsNamingModal] = useState(false);
-            const [tempRoomName, setTempRoomName] = useState('');
+            
+            // Modal States
+            const [namingModal, setNamingModal] = useState({ show: false, type: '', value: '' });
             const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+            const [tempName, setTempName] = useState('');
 
             useEffect(() => {
                 const stored = JSON.parse(localStorage.getItem('f1_paddock_rooms') || '[]');
@@ -104,57 +107,87 @@
                 return () => clearInterval(timer);
             }, [countdownRace]);
 
-            const updateDB = async (newData, extra = {}) => {
-                const { data, error } = await sb.from('f1_rooms').update({ data: newData, ...extra }).eq('code', room.code).select().single();
+            // --- FIXED DB UPDATE ---
+            const pushUpdate = async (updatedRoom) => {
+                const { data, error } = await sb.from('f1_rooms')
+                    .update({ 
+                        data: updatedRoom.data, 
+                        name: updatedRoom.name, 
+                        progress_done: updatedRoom.progress_done 
+                    })
+                    .eq('code', updatedRoom.code)
+                    .select().single();
                 if (!error) setRoom(data);
-            };
-
-            const saveRoomLocally = (code, name) => {
-                const existing = JSON.parse(localStorage.getItem('f1_paddock_rooms') || '[]');
-                if (!existing.find(r => r.code === code)) {
-                    const updated = [...existing, { code, name }];
-                    localStorage.setItem('f1_paddock_rooms', JSON.stringify(updated));
-                    setSavedRooms(updated);
-                }
+                else console.error("Update failed:", error);
             };
 
             const joinRoom = async (code) => {
-                const { data, error } = await sb.from('f1_rooms').select().eq('code', code.toUpperCase()).single();
+                const { data } = await sb.from('f1_rooms').select().eq('code', code.toUpperCase()).single();
                 if (data) { 
                     setRoom(data); 
                     setView('main-room'); 
-                    saveRoomLocally(data.code, data.name);
-                } else alert("Room not found");
+                    const existing = JSON.parse(localStorage.getItem('f1_paddock_rooms') || '[]');
+                    if (!existing.find(r => r.code === data.code)) {
+                        const updated = [...existing, { code: data.code, name: data.name }];
+                        localStorage.setItem('f1_paddock_rooms', JSON.stringify(updated));
+                        setSavedRooms(updated);
+                    }
+                } else alert("Invalid Code");
             };
 
-            const createRoom = async () => {
-                const code = Math.random().toString(36).substring(2,6).toUpperCase();
-                const { data } = await sb.from('f1_rooms').insert([{ 
-                    name: tempRoomName || "My Paddock", 
-                    code, 
-                    data: {participants:[], sub_rooms:[]} 
-                }]).select().single();
-                if (data) {
-                    setRoom(data);
-                    setIsNamingModal(false);
-                    setView('main-room');
-                    saveRoomLocally(data.code, data.name);
+            const handleModalSubmit = async () => {
+                if (!namingModal.value) return;
+                
+                if (namingModal.type === 'create_room') {
+                    const code = Math.random().toString(36).substring(2,6).toUpperCase();
+                    const { data } = await sb.from('f1_rooms').insert([{ 
+                        name: namingModal.value, 
+                        code, 
+                        data: {participants:[], sub_rooms:[]} 
+                    }]).select().single();
+                    if (data) {
+                        setRoom(data);
+                        setView('main-room');
+                        const updated = [...savedRooms, { code: data.code, name: data.name }];
+                        localStorage.setItem('f1_paddock_rooms', JSON.stringify(updated));
+                        setSavedRooms(updated);
+                    }
+                } else if (namingModal.type === 'create_sub') {
+                    const newSub = { id: Date.now(), name: namingModal.value, predictions: [] };
+                    const updatedRoom = { ...room, data: { ...room.data, sub_rooms: [...room.data.sub_rooms, newSub] } };
+                    await pushUpdate(updatedRoom);
                 }
+                setNamingModal({ show: false, type: '', value: '' });
             };
 
-            // Progress Ring Logic
+            // Accuracy Math
+            const getSubAcc = (uid, sid) => {
+                const sub = room?.data?.sub_rooms?.find(s => s.id === sid);
+                const p = sub?.predictions?.filter(x => x.userId === uid) || [];
+                return p.length === 0 ? 0 : Math.round((p.filter(x => x.done).length / p.length)*100);
+            };
+
+            const getSeasonAcc = (uid) => {
+                let t = 0, c = 0;
+                room?.data?.sub_rooms?.forEach(s => {
+                    const p = s.predictions.filter(x => x.userId === uid);
+                    t += p.length; c += p.filter(x => x.done).length;
+                });
+                return t === 0 ? 0 : Math.round((c/t)*100);
+            };
+
+            // Progress Tracker Config
             const totalRaces = 24;
             const radius = 45;
             const circumference = 2 * Math.PI * radius;
             const progress = room ? (room.progress_done || 0) : 0;
             const offset = circumference - (progress / totalRaces) * circumference;
 
+            // --- RENDER VIEWS ---
             if (view === 'landing') return (
                 <div className="min-h-screen p-6 flex flex-col items-center">
                     <h1 className="text-6xl f1-font italic mt-10 mb-8">F1<span className="f1-red">PADDOCK</span></h1>
-                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
-                        {/* Tracker & Countdown */}
                         <div className="f1-glass rounded-[2.5rem] p-8 flex flex-col items-center text-center">
                             <div className="relative mb-4">
                                 <svg width="120" height="120">
@@ -171,17 +204,14 @@
                             </select>
                             <div className="f1-font text-4xl tracking-tighter">{timeLeft}</div>
                         </div>
-
-                        {/* Join / Create */}
                         <div className="f1-glass rounded-[2.5rem] p-8 flex flex-col justify-center">
                             <input className="w-full bg-transparent border-b border-white/10 p-4 text-center f1-font text-2xl outline-none mb-4" placeholder="ROOM CODE" value={roomCodeInput} onChange={e => setRoomCodeInput(e.target.value.toUpperCase())} />
                             <div className="grid grid-cols-2 gap-3 mb-6">
                                 <button onClick={() => joinRoom(roomCodeInput)} className="f1-bg-red py-4 rounded-xl f1-font text-[10px]">JOIN ROOM</button>
-                                <button onClick={() => setIsNamingModal(true)} className="bg-zinc-900 py-4 rounded-xl f1-font text-[10px] border border-white/10">CREATE ROOM</button>
+                                <button onClick={() => setNamingModal({show: true, type: 'create_room', value: ''})} className="bg-zinc-900 py-4 rounded-xl f1-font text-[10px] border border-white/10">CREATE ROOM</button>
                             </div>
-                            
-                            <p className="text-[10px] font-bold opacity-30 mb-3 uppercase tracking-widest">Your Recent Rooms</p>
-                            <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                            <p className="text-[10px] font-bold opacity-30 mb-3 uppercase tracking-widest">Saved Hubs</p>
+                            <div className="space-y-2 max-h-40 overflow-y-auto">
                                 {savedRooms.map(r => (
                                     <div key={r.code} onClick={() => joinRoom(r.code)} className="bg-white/5 p-3 rounded-lg flex justify-between items-center cursor-pointer hover:bg-white/10">
                                         <span className="f1-font text-xs italic">{r.name}</span>
@@ -191,51 +221,26 @@
                             </div>
                         </div>
                     </div>
-
-                    {/* Room Naming Modal */}
-                    {isNamingModal && (
-                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-                            <div className="absolute inset-0 bg-black/90 backdrop-blur-md" />
-                            <div className="relative w-full max-w-md custom-modal p-10 rounded-[3rem] text-center">
-                                <h2 className="text-4xl f1-font italic mb-2">NEW<span className="f1-red">PADDOCK</span></h2>
-                                <p className="text-[10px] font-bold opacity-30 uppercase tracking-[0.4em] mb-8">Establish Your Strategy Hub</p>
-                                <input className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl f1-font text-xl text-center outline-none mb-6" placeholder="ROOM NAME..." autoFocus value={tempRoomName} onChange={e => setTempRoomName(e.target.value)} />
-                                <div className="grid grid-cols-2 gap-4">
-                                    <button onClick={() => setIsNamingModal(false)} className="py-4 bg-zinc-900 rounded-xl f1-font text-[10px]">CANCEL</button>
-                                    <button onClick={createRoom} className="py-4 f1-bg-red rounded-xl f1-font text-[10px]">LAUNCH</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
 
             if (view === 'main-room') {
-                const getSeasonAcc = (uid) => {
-                    let t = 0, c = 0;
-                    room.data.sub_rooms.forEach(s => {
-                        const p = s.predictions.filter(pr => pr.userId === uid);
-                        t += p.length; c += p.filter(pr => pr.done).length;
-                    });
-                    return t === 0 ? 0 : Math.round((c/t)*100);
-                };
                 const podium = [...room.data.participants].sort((a,b) => getSeasonAcc(b.id) - getSeasonAcc(a.id));
-
                 return (
                     <div className="max-w-5xl mx-auto p-6 pt-10">
                         <div className="flex justify-between items-center mb-10">
                             <button onClick={() => setView('landing')} className="f1-font text-[10px] opacity-40">← EXIT</button>
                             <div className="text-center">
-                                <h2 className="f1-font text-4xl italic tracking-tighter bg-white/5 px-8 py-2 rounded-full mb-1">{room.name}</h2>
+                                <h2 className="f1-font text-4xl italic bg-white/5 px-8 py-2 rounded-full mb-1">{room.name}</h2>
                                 <div className="flex items-center justify-center gap-2">
-                                    <span className="text-[10px] opacity-30">{room.code}</span>
-                                    <button onClick={() => {navigator.clipboard.writeText(room.code); alert("Copied!")}} className="text-[8px] bg-white/10 px-2 py-1 rounded">COPY</button>
+                                    <span className="text-[10px] opacity-30 italic">{room.code}</span>
+                                    <button onClick={() => {navigator.clipboard.writeText(room.code); alert("Code Copied!")}} className="text-[8px] bg-white/10 px-2 py-1 rounded">COPY</button>
                                 </div>
                             </div>
                             <button onClick={() => setIsDrawerOpen(true)} className="f1-bg-red px-6 py-2 rounded-lg f1-font text-[10px]">MANAGE GRID</button>
                         </div>
 
-                        {/* Podium (Simplified logic for brevity but same aesthetics) */}
+                        {/* Podium Section */}
                         <div className="f1-glass rounded-[3rem] h-[350px] flex items-end justify-center gap-4 p-8 mb-10 overflow-hidden">
                             {[podium[1], podium[0], podium[2]].map((p, i) => (
                                 <div key={i} className="flex-1 flex flex-col items-center">
@@ -250,71 +255,36 @@
 
                         <div className="flex justify-between items-center mb-6">
                             <div className="flex gap-4 items-center">
-                                <h3 className="f1-font text-xl italic opacity-40">SUB ROOMS</h3>
-                                <div className="flex gap-2 bg-white/5 rounded-full p-1 px-3 items-center">
-                                    <span className="text-[10px] opacity-30">TRACKER</span>
-                                    <button onClick={() => updateDB(room.data, {progress_done: Math.max(0, room.progress_done-1)})} className="bg-white/10 w-6 h-6 rounded-full">-</button>
+                                <h3 className="f1-font text-xl italic opacity-40 text-white">SUB ROOMS</h3>
+                                <div className="flex gap-2 bg-white/5 rounded-full p-1 px-3 items-center border border-white/10">
+                                    <button onClick={() => pushUpdate({...room, progress_done: Math.max(0, room.progress_done-1)})} className="bg-white/10 w-6 h-6 rounded-full">-</button>
                                     <span className="f1-font text-xs">{room.progress_done}/24</span>
-                                    <button onClick={() => updateDB(room.data, {progress_done: Math.min(24, room.progress_done+1)})} className="bg-white/10 w-6 h-6 rounded-full">+</button>
+                                    <button onClick={() => pushUpdate({...room, progress_done: Math.min(24, room.progress_done+1)})} className="bg-white/10 w-6 h-6 rounded-full">+</button>
                                 </div>
                             </div>
-                            <button onClick={() => {
-                                const n = prompt("Sub Room Name:");
-                                if(n) updateDB({...room.data, sub_rooms: [...room.data.sub_rooms, {id: Date.now(), name: n, predictions:[]}]});
-                            }} className="f1-bg-red px-4 py-2 rounded-lg f1-font text-[10px]">NEW SUB ROOM +</button>
+                            <button onClick={() => setNamingModal({show: true, type: 'create_sub', value: ''})} className="f1-bg-red px-4 py-2 rounded-lg f1-font text-[10px]">NEW SUB ROOM +</button>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {room.data.sub_rooms.map(s => (
-                                <div key={s.id} onClick={() => {setActiveSubRoomId(s.id); setView('sub-room');}} className="f1-glass p-8 rounded-[2rem] text-center cursor-pointer hover:scale-105 transition">
+                                <div key={s.id} onClick={() => {setActiveSubRoomId(s.id); setView('sub-room');}} className="f1-glass p-8 rounded-[2rem] text-center cursor-pointer hover:bg-white/5 transition">
                                     <p className="f1-font text-lg italic">{s.name}</p>
+                                    <p className="text-[8px] font-bold opacity-20 uppercase mt-2">Open Room →</p>
                                 </div>
                             ))}
                         </div>
-
-                        {/* Drawer for Manage Grid */}
-                        {isDrawerOpen && (
-                            <div className="fixed inset-0 z-[100] flex justify-end">
-                                <div className="absolute inset-0 bg-black/80" onClick={() => setIsDrawerOpen(false)} />
-                                <div className="relative w-full max-w-sm bg-black border-l border-white/10 p-10">
-                                    <h2 className="f1-font text-2xl mb-6 italic">Manage Grid</h2>
-                                    <input className="w-full bg-white/5 p-4 rounded-xl mb-4 outline-none border border-white/10" placeholder="NAME" value={tempRoomName} onChange={e => setTempRoomName(e.target.value)} />
-                                    <select id="teamSel" className="w-full bg-zinc-900 p-4 rounded-xl mb-6 f1-font text-xs border border-white/10 text-white">
-                                        {Object.entries(TEAMS).map(([id, t]) => <option key={id} value={id}>{t.name}</option>)}
-                                    </select>
-                                    <button onClick={() => {
-                                        const t = document.getElementById('teamSel').value;
-                                        updateDB({...room.data, participants: [...room.data.participants, {id: 'u'+Date.now(), name: tempRoomName, team: t}]});
-                                        setTempRoomName('');
-                                    }} className="w-full f1-bg-red py-4 rounded-xl f1-font text-[10px] mb-8">ADD STRATEGIST</button>
-                                    {room.data.participants.map(p => (
-                                        <div key={p.id} className="flex justify-between p-3 bg-white/5 rounded-lg mb-2">
-                                            <span className="f1-font text-xs italic">{p.name}</span>
-                                            <button onClick={() => updateDB({...room.data, participants: room.data.participants.filter(x => x.id !== p.id)})} className="text-red-600 text-[10px] font-bold">REMOVE</button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 );
             }
 
             if (view === 'sub-room') {
                 const sub = room.data.sub_rooms.find(s => s.id === activeSubRoomId);
-                const getAcc = (uid) => {
-                    const p = sub.predictions.filter(x => x.userId === uid);
-                    return p.length === 0 ? 0 : Math.round((p.filter(x => x.done).length / p.length)*100);
-                };
-                const podium = [...room.data.participants].sort((a,b) => getAcc(b.id) - getAcc(a.id));
-
+                const podium = [...room.data.participants].sort((a,b) => getSubAcc(b.id, activeSubRoomId) - getSubAcc(a.id, activeSubRoomId));
                 return (
                     <div className="max-w-5xl mx-auto p-6 pt-10">
-                        <div className="flex justify-between items-center mb-10">
-                            <button onClick={() => setView('main-room')} className="f1-font text-[10px] opacity-40">← BACK</button>
-                            <h2 className="f1-font text-4xl italic bg-white/5 px-8 py-2 rounded-full">{sub.name}</h2>
-                            <div className="w-10" />
-                        </div>
+                        <button onClick={() => setView('main-room')} className="f1-font text-[10px] opacity-40 mb-6">← BACK</button>
+                        <h2 className="text-center f1-font text-4xl italic mb-12">{sub.name}</h2>
+                        
                         <div className="f1-glass rounded-[3rem] h-[300px] flex items-end justify-center gap-4 p-8 mb-12 overflow-hidden">
                             {[podium[1], podium[0], podium[2]].map((p, i) => (
                                 <div key={i} className="flex-1 flex flex-col items-center">
@@ -326,12 +296,13 @@
                                 </div>
                             ))}
                         </div>
+
                         <div className="space-y-3">
                             {room.data.participants.map(p => (
                                 <div key={p.id} onClick={() => {setActiveUserId(p.id); setView('user-preds');}} className="p-1 rounded-2xl cursor-pointer" style={{background: TEAMS[p.team].color}}>
                                     <div className="bg-black/95 rounded-[0.9rem] p-5 flex justify-between items-center hover:bg-black/80">
                                         <span className="f1-font text-lg italic">{p.name}</span>
-                                        <span className="f1-font text-xl f1-red">{getAcc(p.id)}%</span>
+                                        <span className="f1-font text-xl f1-red">{getSubAcc(p.id, activeSubRoomId)}%</span>
                                     </div>
                                 </div>
                             ))}
@@ -343,35 +314,37 @@
             if (view === 'user-preds') {
                 const sub = room.data.sub_rooms.find(s => s.id === activeSubRoomId);
                 const user = room.data.participants.find(u => u.id === activeUserId);
-                const [txt, setTxt] = useState('');
+                const [input, setInput] = useState('');
                 const myPreds = sub.predictions.filter(pr => pr.userId === user.id);
+
+                const savePreds = async (newPredList) => {
+                    const newSubs = room.data.sub_rooms.map(s => s.id === activeSubRoomId ? {...s, predictions: newPredList} : s);
+                    await pushUpdate({...room, data: {...room.data, sub_rooms: newSubs}});
+                };
 
                 return (
                     <div className="max-w-xl mx-auto p-6 pt-10">
-                        <button onClick={() => setView('sub-room')} className="f1-font text-[10px] opacity-40 mb-8">← BACK TO GRID</button>
+                        <button onClick={() => setView('sub-room')} className="f1-font text-[10px] opacity-40 mb-8">← BACK TO PODIUM</button>
                         <h2 className="f1-font text-4xl italic mb-10">{user.name}</h2>
+                        
                         <div className="flex gap-2 mb-8">
-                            <input className="flex-1 bg-white/5 p-4 rounded-xl outline-none italic border border-white/10" placeholder="VERDICT..." value={txt} onChange={e => setTxt(e.target.value)} />
+                            <input className="flex-1 bg-white/5 p-4 rounded-xl outline-none italic border border-white/10" placeholder="LODGE PREDICTION..." value={input} onChange={e => setInput(e.target.value)} />
                             <button onClick={() => {
-                                if(!txt) return;
-                                const newS = {...sub, predictions: [...sub.predictions, {id: Date.now(), userId: user.id, text: txt, done: false}]};
-                                updateDB(room.data.sub_rooms.map(s => s.id === activeSubRoomId ? newS : s));
-                                setTxt('');
+                                if(!input) return;
+                                savePreds([...sub.predictions, {id: Date.now(), userId: user.id, text: input, done: false}]);
+                                setInput('');
                             }} className="f1-bg-red px-6 rounded-xl f1-font text-xs">ADD</button>
                         </div>
+
                         <div className="space-y-4">
                             {myPreds.map(pr => (
                                 <div key={pr.id} className="f1-glass p-5 rounded-2xl flex items-center justify-between">
                                     <span className={`italic ${pr.done ? 'line-through opacity-20' : ''}`}>{pr.text}</span>
-                                    <div className="flex gap-4">
+                                    <div className="flex gap-4 items-center">
                                         <input type="checkbox" checked={pr.done} onChange={() => {
-                                            const newS = {...sub, predictions: sub.predictions.map(p => p.id === pr.id ? {...p, done: !p.done} : p)};
-                                            updateDB(room.data.sub_rooms.map(s => s.id === activeSubRoomId ? newS : s));
-                                        }} className="w-6 h-6 accent-red-600" />
-                                        <button onClick={() => {
-                                            const newS = {...sub, predictions: sub.predictions.filter(p => p.id !== pr.id)};
-                                            updateDB(room.data.sub_rooms.map(s => s.id === activeSubRoomId ? newS : s));
-                                        }} className="text-red-600 font-bold text-[10px]">✕</button>
+                                            savePreds(sub.predictions.map(p => p.id === pr.id ? {...p, done: !p.done} : p));
+                                        }} className="w-6 h-6 accent-red-600 cursor-pointer" />
+                                        <button onClick={() => savePreds(sub.predictions.filter(p => p.id !== pr.id))} className="text-red-600 font-bold text-lg">✕</button>
                                     </div>
                                 </div>
                             ))}
@@ -379,6 +352,61 @@
                     </div>
                 );
             }
+
+            return (
+                <>
+                {/* --- UNIVERSAL MODAL FOR NAMING --- */}
+                {namingModal.show && (
+                    <div className="fixed inset-0 z-[300] flex items-center justify-center p-6">
+                        <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" />
+                        <div className="relative w-full max-w-md custom-modal p-10 rounded-[3rem] text-center border-t-4 border-red-600">
+                            <h2 className="text-3xl f1-font italic mb-2">
+                                {namingModal.type === 'create_room' ? 'NEW PADDOCK' : 'NEW SUB ROOM'}
+                            </h2>
+                            <p className="text-[10px] font-bold opacity-30 uppercase tracking-[0.4em] mb-10">Strategy Initialization</p>
+                            <input className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl f1-font text-xl text-center outline-none mb-8 text-white focus:border-red-600 transition" 
+                                placeholder="ENTER NAME..." autoFocus 
+                                value={namingModal.value} onChange={e => setNamingModal({...namingModal, value: e.target.value})} 
+                                onKeyPress={e => e.key === 'Enter' && handleModalSubmit()} />
+                            <div className="grid grid-cols-2 gap-4">
+                                <button onClick={() => setNamingModal({show:false, type:'', value:''})} className="py-4 bg-zinc-900 rounded-xl f1-font text-[10px]">CANCEL</button>
+                                <button onClick={handleModalSubmit} className="py-4 f1-bg-red rounded-xl f1-font text-[10px]">CONFIRM</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- DRAWER FOR MANAGE GRID --- */}
+                {isDrawerOpen && (
+                    <div className="fixed inset-0 z-[100] flex justify-end">
+                        <div className="absolute inset-0 bg-black/80" onClick={() => setIsDrawerOpen(false)} />
+                        <div className="relative w-full max-w-sm bg-black border-l border-white/10 p-10">
+                            <h2 className="f1-font text-2xl mb-8 italic">Manage Grid</h2>
+                            <input id="pname" className="w-full bg-white/5 p-4 rounded-xl mb-4 outline-none border border-white/10 text-white" placeholder="STRATEGIST NAME" />
+                            <select id="pteam" className="w-full bg-zinc-900 p-4 rounded-xl mb-6 f1-font text-xs border border-white/10 text-white">
+                                {Object.entries(TEAMS).map(([id, t]) => <option key={id} value={id}>{t.name}</option>)}
+                            </select>
+                            <button onClick={async () => {
+                                const n = document.getElementById('pname').value;
+                                const t = document.getElementById('pteam').value;
+                                if(!n) return;
+                                const updated = {...room, data: {...room.data, participants: [...room.data.participants, {id: 'u'+Date.now(), name: n, team: t}]}};
+                                await pushUpdate(updated);
+                                document.getElementById('pname').value = '';
+                            }} className="w-full f1-bg-red py-4 rounded-xl f1-font text-[10px] mb-8">ADD TO GRID</button>
+                            <div className="space-y-2">
+                                {room.data.participants.map(p => (
+                                    <div key={p.id} className="flex justify-between p-3 bg-white/5 rounded-lg border-l-4" style={{borderColor: TEAMS[p.team].color}}>
+                                        <span className="f1-font text-xs italic">{p.name}</span>
+                                        <button onClick={() => pushUpdate({...room, data: {...room.data, participants: room.data.participants.filter(x => x.id !== p.id)}})} className="text-red-600 text-[10px] font-bold">REMOVE</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+                </>
+            );
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
