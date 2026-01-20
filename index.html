@@ -11,12 +11,12 @@
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;900&family=Inter:wght@400;700&display=swap');
-        
-        :root { --f1-red: #e10600; }
         body { background-color: #050505; color: white; font-family: 'Inter', sans-serif; overflow-x: hidden; }
         .f1-font { font-family: 'Outfit', sans-serif; font-weight: 900; text-transform: uppercase; font-style: italic; }
         .f1-glass { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(12px); }
-        .pillar { transition: height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .pillar { transition: height 1s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .f1-red { color: #e10600; }
+        .f1-bg-red { background-color: #e10600; }
     </style>
 </head>
 <body>
@@ -25,7 +25,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- CONFIGURATION ---
         const SB_URL = "https://gyzflcxqehesojhimokd.supabase.co"; 
         const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5emZsY3hxZWhlc29qaGltb2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMzQ4MjcsImV4cCI6MjA4MzcxMDgyN30.fOW7qr9cNEUp6otJU2f-tXtOJxRX4Wge9R76OXE-_Tk";
         const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -48,25 +47,24 @@
             { id: 2, race: "Chinese GP", date: "2026-03-22" },
             { id: 3, race: "Japanese GP", date: "2026-04-05" },
             { id: 4, race: "Bahrain GP", date: "2026-04-19" },
-            { id: 5, race: "Saudi Arabian GP", date: "2026-04-26" }
+            { id: 5, race: "Saudi Arabian GP", date: "2026-04-26" },
+            { id: 6, race: "Miami GP", date: "2026-05-03" }
         ];
 
-        // --- COMPONENTS ---
-
         const ProgressCircle = ({ completed, total }) => {
-            const radius = 36;
+            const radius = 35;
             const circ = 2 * Math.PI * radius;
             const offset = circ - (completed / total) * circ;
             return (
-                <div className="relative flex items-center justify-center w-32 h-32 f1-glass rounded-full">
-                    <svg className="w-full h-full transform -rotate-90">
-                        <circle cx="64" cy="64" r={radius} stroke="rgba(255,255,255,0.1)" strokeWidth="6" fill="transparent" />
-                        <circle cx="64" cy="64" r={radius} stroke="#e10600" strokeWidth="6" fill="transparent" 
+                <div className="relative flex items-center justify-center">
+                    <svg width="100" height="100" className="transform -rotate-90">
+                        <circle cx="50" cy="50" r={radius} stroke="#18181b" strokeWidth="8" fill="transparent" />
+                        <circle cx="50" cy="50" r={radius} stroke="#e10600" strokeWidth="8" fill="transparent" 
                                 strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" className="transition-all duration-1000" />
                     </svg>
                     <div className="absolute text-center">
-                        <div className="f1-font text-xl leading-none">{completed}/{total}</div>
-                        <div className="text-[8px] font-bold opacity-40 uppercase tracking-tighter">Races Done</div>
+                        <div className="f1-font text-lg leading-none">{completed}/{total}</div>
+                        <div className="text-[7px] font-bold opacity-30 uppercase">Progress</div>
                     </div>
                 </div>
             );
@@ -78,75 +76,74 @@
             const [participants, setParticipants] = useState([]);
             const [roomCode, setRoomCode] = useState('');
             const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+            const [formName, setFormName] = useState('');
+            const [formTeam, setFormTeam] = useState('ferrari');
 
-            // Form State
-            const [newName, setNewName] = useState('');
-            const [newTeam, setNewTeam] = useState('ferrari');
-
-            // Logic: Accuracy & Tie-breaking
             const getAcc = (p) => {
-                if (!p.predictions || p.predictions.length === 0) return 0;
+                if (!p || !p.predictions || p.predictions.length === 0) return 0;
                 return Math.round((p.predictions.filter(x => x.done).length / p.predictions.length) * 100);
             };
 
             const sorted = useMemo(() => {
                 return [...participants].sort((a, b) => {
                     const diff = getAcc(b) - getAcc(a);
-                    return diff !== 0 ? diff : a.name.localeCompare(b.name);
+                    if (diff !== 0) return diff;
+                    return (a.name || "").localeCompare(b.name || "");
                 });
             }, [participants]);
 
-            // Database Sync
             const updateDB = async (list) => {
                 setParticipants(list);
-                if (room) await sb.from('f1_rooms').update({ data: { participants: list } }).eq('code', room.code);
+                if (room) {
+                    await sb.from('f1_rooms').update({ data: { participants: list } }).eq('code', room.code);
+                }
             };
 
             const joinRoom = async (code) => {
+                if (!code) return;
                 const { data } = await sb.from('f1_rooms').select().eq('code', code.toUpperCase()).single();
                 if (data) {
                     setRoom(data);
                     setParticipants(data.data.participants || []);
                     setView('dashboard');
-                } else { alert("Room Not Found"); }
+                } else { alert("Room not found"); }
             };
 
             const createRoom = async () => {
                 const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-                const { data } = await sb.from('f1_rooms').insert([{ code, name: "2026 Championship", data: { participants: [] } }]).select().single();
+                const { data } = await sb.from('f1_rooms').insert([{ code, name: "Season 2026", data: { participants: [] } }]).select().single();
                 if (data) joinRoom(code);
             };
 
-            // Calculate Countdown
             const nextRace = CALENDAR_2026.find(r => new Date(r.date) > new Date()) || CALENDAR_2026[0];
-            const daysLeft = Math.ceil((new Date(nextRace.date) - new Date()) / (1000 * 60 * 60 * 24));
-            const completedCount = CALENDAR_2026.filter(r => new Date(r.date) < new Date()).length;
+            const daysToRace = Math.max(0, Math.ceil((new Date(nextRace.date) - new Date()) / 86400000));
+            const completedRaces = CALENDAR_2026.filter(r => new Date(r.date) < new Date()).length;
 
             if (view === 'landing') return (
                 <div className="min-h-screen flex flex-col items-center justify-center p-6 space-y-12">
                     <div className="text-center">
-                        <h1 className="text-7xl f1-font italic tracking-tighter mb-4">F1<span style={{color: 'var(--f1-red)'}}>PADDOCK</span></h1>
-                        <p className="text-[10px] font-bold tracking-[0.6em] opacity-30 uppercase">Strategist Portal 2026</p>
+                        <h1 className="text-7xl f1-font italic tracking-tighter mb-2">F1<span className="f1-red">PADDOCK</span></h1>
+                        <p className="text-[10px] font-bold tracking-[0.6em] opacity-30 uppercase">Grand Prix Intel 2026</p>
                     </div>
 
                     <div className="w-full max-w-sm space-y-4">
                         <div className="f1-glass p-8 rounded-[2.5rem]">
                             <input className="w-full bg-transparent border-b border-zinc-800 p-4 text-2xl f1-font text-center outline-none mb-6 uppercase" 
-                                   placeholder="Room Code" value={roomCode} onChange={e => setRoomCode(e.target.value)} />
+                                placeholder="Enter Code" value={roomCode} onChange={e => setRoomCode(e.target.value)} />
                             <div className="grid grid-cols-2 gap-4">
-                                <button onClick={() => joinRoom(roomCode)} className="bg-white text-black py-4 rounded-xl f1-font text-xs italic">Join</button>
-                                <button onClick={createRoom} className="bg-zinc-900 text-white py-4 rounded-xl f1-font text-xs italic border border-white/10">Create</button>
+                                <button onClick={() => joinRoom(roomCode)} className="f1-bg-red py-4 rounded-xl f1-font text-[10px] italic">Join Room</button>
+                                <button onClick={createRoom} className="bg-zinc-900 py-4 rounded-xl f1-font text-[10px] italic border border-white/5">Create New</button>
                             </div>
                         </div>
-                        
-                        <div className="f1-glass p-6 rounded-3xl flex items-center justify-between px-8">
+
+                        <div className="f1-glass p-6 rounded-3xl flex items-center justify-between px-10">
                             <div>
-                                <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest">{nextRace.race}</p>
-                                <p className="f1-font text-xl italic tracking-tight">Lights Out In</p>
+                                <p className="text-[8px] font-bold opacity-40 uppercase mb-1">{nextRace.race}</p>
+                                <p className="f1-font text-lg italic tracking-tighter">Lights Out</p>
                             </div>
                             <div className="text-right">
-                                <span className="f1-font text-4xl italic" style={{color: 'var(--f1-red)'}}>{daysLeft}</span>
-                                <span className="text-[9px] font-bold block opacity-40 uppercase">Days</span>
+                                <span className="f1-font text-3xl f1-red">{daysToRace}</span>
+                                <span className="text-[8px] font-bold block opacity-40">DAYS</span>
                             </div>
                         </div>
                     </div>
@@ -155,101 +152,101 @@
 
             if (view === 'dashboard') {
                 const [p1, p2, p3, p4] = sorted;
-                // Tie breaker indicators
                 const tie23 = p2 && p3 && getAcc(p2) === getAcc(p3);
                 const tie34 = p3 && p4 && getAcc(p3) === getAcc(p4);
 
                 return (
                     <div className="max-w-5xl mx-auto p-6 pt-12">
-                        {/* Header Area */}
-                        <div className="flex justify-between items-center mb-12">
+                        {/* Header */}
+                        <div className="flex justify-between items-center mb-10">
                             <div className="flex items-center gap-6">
-                                <button onClick={() => setView('landing')} className="text-zinc-500 hover:text-white transition text-xs font-bold uppercase tracking-widest">← Exit</button>
-                                <h2 className="f1-font text-2xl italic">🏁 {room.code}</h2>
+                                <button onClick={() => setView('landing')} className="text-zinc-600 hover:text-white transition text-[10px] font-bold uppercase tracking-widest">← Exit Room</button>
+                                <div className="flex flex-col">
+                                    <h2 className="f1-font text-xl italic tracking-tight">🏁 Room {room.code}</h2>
+                                    <button onClick={() => {navigator.clipboard.writeText(room.code); alert("Copied!");}} className="text-[9px] opacity-30 hover:opacity-100 font-bold uppercase mt-1">Copy Code</button>
+                                </div>
                             </div>
-                            <div className="flex gap-4">
-                                <button onClick={() => {navigator.clipboard.writeText(room.code); alert("Code Copied!")}} className="px-5 py-2 rounded-lg bg-zinc-900 border border-white/5 text-[10px] font-bold uppercase tracking-widest">Copy Code</button>
-                                <button onClick={() => setIsDrawerOpen(true)} className="px-5 py-2 rounded-lg f1-font text-[10px] italic border border-red-600/50 hover:bg-red-600 transition" style={{background: 'rgba(225, 6, 0, 0.1)'}}>Manage Grid</button>
-                            </div>
+                            <button onClick={() => setIsDrawerOpen(true)} className="f1-bg-red px-6 py-2 rounded-lg f1-font text-[10px] italic shadow-lg shadow-red-900/20">Add Participant</button>
                         </div>
 
-                        {/* Top Stats Row */}
-                        <div className="grid lg:grid-cols-3 gap-8 mb-12 items-end">
-                            {/* The Podium */}
-                            <div className="lg:col-span-2 f1-glass rounded-[3rem] p-10 h-[400px] flex items-end justify-center gap-6 relative overflow-hidden">
-                                <div className="absolute top-8 left-10 opacity-20 f1-font text-xs tracking-[0.3em]">Live Standings</div>
+                        {/* Podium and Circle */}
+                        <div className="grid lg:grid-cols-3 gap-6 mb-12">
+                            <div className="lg:col-span-2 f1-glass rounded-[3rem] h-[400px] p-10 flex items-end justify-center gap-4 relative overflow-hidden">
+                                <div className="absolute top-8 left-10 opacity-20 f1-font text-[10px] tracking-widest italic">Race Podium</div>
                                 
                                 {/* P2 */}
                                 <div className="flex-1 flex flex-col items-center">
-                                    <span className="text-[10px] font-bold mb-2 truncate w-full text-center opacity-60 uppercase">{p2?.name || '---'}</span>
-                                    <div className="pillar w-full rounded-t-xl flex items-center justify-center f1-font text-3xl opacity-40 italic" 
-                                         style={{ height: p2 ? '140px' : '30px', background: p2 ? TEAMS[p2.team].color : '#111', color: p2.team === 'audi' ? '#000' : '#fff' }}>
+                                    <p className="text-[9px] font-bold opacity-50 mb-2 uppercase truncate w-full text-center px-2">{p2?.name || '---'}</p>
+                                    <div className="pillar w-full rounded-t-xl flex items-center justify-center f1-font text-3xl opacity-30 italic" 
+                                        style={{ height: p2 ? '150px' : '30px', background: p2 ? TEAMS[p2.team]?.color : '#111' }}>
                                         {tie23 ? '=' : '2'}
                                     </div>
                                 </div>
                                 {/* P1 */}
                                 <div className="flex-1 flex flex-col items-center">
-                                    <span className="f1-font text-sm mb-2 truncate w-full text-center uppercase">{p1?.name || '---'}</span>
-                                    <div className="pillar w-full rounded-t-xl shadow-[0_-15px_40px_rgba(225,6,0,0.2)] flex items-center justify-center f1-font text-6xl opacity-60 italic border-t-2 border-white/20" 
-                                         style={{ height: p1 ? '220px' : '30px', background: p1 ? TEAMS[p1.team].color : '#222', color: p1.team === 'audi' ? '#000' : '#fff' }}>1</div>
+                                    <p className="f1-font text-[11px] mb-2 uppercase truncate w-full text-center px-2">{p1?.name || '---'}</p>
+                                    <div className="pillar w-full rounded-t-xl flex items-center justify-center f1-font text-6xl opacity-40 italic border-t-2 border-white/20 shadow-[0_-20px_50px_rgba(255,255,255,0.05)]" 
+                                        style={{ height: p1 ? '220px' : '30px', background: p1 ? TEAMS[p1.team]?.color : '#222' }}>
+                                        1
+                                    </div>
                                 </div>
                                 {/* P3 */}
                                 <div className="flex-1 flex flex-col items-center">
-                                    <span className="text-[10px] font-bold mb-2 truncate w-full text-center opacity-60 uppercase">{p3?.name || '---'}</span>
+                                    <p className="text-[9px] font-bold opacity-50 mb-2 uppercase truncate w-full text-center px-2">{p3?.name || '---'}</p>
                                     <div className="pillar w-full rounded-t-xl flex items-center justify-center f1-font text-xl opacity-20 italic" 
-                                         style={{ height: p3 ? '90px' : '30px', background: p3 ? TEAMS[p3.team].color : '#0a0a0a', color: p3.team === 'audi' ? '#000' : '#fff' }}>
+                                        style={{ height: p3 ? '100px' : '30px', background: p3 ? TEAMS[p3.team]?.color : '#0a0a0a' }}>
                                         {tie34 ? '=' : '3'}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Season Progress */}
-                            <div className="flex flex-col items-center justify-center space-y-6 f1-glass rounded-[3rem] p-10 h-[400px]">
-                                <ProgressCircle completed={completedCount} total={CALENDAR_2026.length} />
+                            <div className="f1-glass rounded-[3rem] flex flex-col items-center justify-center p-8 space-y-6">
+                                <ProgressCircle completed={completedRaces} total={CALENDAR_2026.length} />
                                 <div className="text-center">
-                                    <p className="f1-font text-lg italic tracking-tight">2026 Season</p>
-                                    <p className="text-[10px] font-bold opacity-30 uppercase tracking-[0.2em] mt-1">Progress Tracker</p>
+                                    <p className="f1-font text-lg italic tracking-tighter leading-none">Season Progress</p>
+                                    <p className="text-[9px] font-bold opacity-20 uppercase tracking-widest mt-2">2026 Championship</p>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Participants List */}
-                        <div className="grid md:grid-cols-2 gap-4">
-                            {sorted.map((p, idx) => (
-                                <div key={p.id} className="f1-glass p-6 rounded-[2rem] border-l-4 flex justify-between items-center transition-all hover:bg-white/[0.05]" style={{ borderColor: TEAMS[p.team].color }}>
+                        {/* List */}
+                        <div className="grid md:grid-cols-2 gap-3">
+                            {sorted.map(p => (
+                                <div key={p.id} className="f1-glass p-5 rounded-[2rem] border-l-4 flex justify-between items-center transition-all hover:bg-white/[0.04]" 
+                                    style={{ borderColor: TEAMS[p.team]?.color }}>
                                     <div>
-                                        <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest">{TEAMS[p.team].name}</p>
-                                        <h4 className="f1-font text-xl italic tracking-tight uppercase leading-none mt-1">{p.name}</h4>
+                                        <p className="text-[8px] font-bold opacity-40 uppercase tracking-tighter mb-1">{TEAMS[p.team]?.name}</p>
+                                        <h4 className="f1-font text-xl italic tracking-tighter uppercase leading-none">{p.name}</h4>
                                     </div>
                                     <div className="text-right">
-                                        <div className="f1-font text-2xl italic leading-none" style={{color: TEAMS[p.team].color}}>{getAcc(p)}%</div>
-                                        <p className="text-[8px] font-bold opacity-30 uppercase mt-1 tracking-tighter">Accuracy</p>
+                                        <div className="f1-font text-2xl f1-red italic">{getAcc(p)}%</div>
+                                        <p className="text-[8px] font-bold opacity-20 uppercase tracking-tighter">Accuracy</p>
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Edit/Add Drawer */}
+                        {/* Participant Drawer */}
                         {isDrawerOpen && (
                             <div className="fixed inset-0 z-50 flex justify-end">
-                                <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsDrawerOpen(false)} />
-                                <div className="relative w-full max-w-sm bg-[#0a0a0a] border-l border-zinc-800 p-10 h-full flex flex-col">
+                                <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setIsDrawerOpen(false)} />
+                                <div className="relative w-full max-w-sm bg-[#080808] border-l border-zinc-900 p-12 flex flex-col h-full shadow-2xl">
                                     <div className="flex justify-between items-center mb-12">
-                                        <h3 className="f1-font text-2xl italic">Manage Grid</h3>
-                                        <button onClick={() => setIsDrawerOpen(false)} className="text-zinc-500 hover:text-white">✕</button>
+                                        <h3 className="f1-font text-2xl italic">Manage Session</h3>
+                                        <button onClick={() => setIsDrawerOpen(false)} className="text-zinc-600 hover:text-white">✕</button>
                                     </div>
 
                                     <div className="space-y-8 flex-1">
                                         <div>
-                                            <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-3 block">Strategist Name</label>
+                                            <label className="text-[10px] font-bold opacity-30 uppercase tracking-widest mb-3 block">Full Name</label>
                                             <input className="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl f1-font text-sm outline-none focus:border-red-600 transition" 
-                                                   placeholder="E.G. CHARLES L." value={newName} onChange={e => setNewName(e.target.value)} />
+                                                placeholder="L. HAMILTON" value={formName} onChange={e => setFormName(e.target.value)} />
                                         </div>
 
                                         <div>
-                                            <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-3 block">Constructor Theme</label>
-                                            <select className="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl text-xs font-bold uppercase outline-none"
-                                                    value={newTeam} onChange={e => setNewTeam(e.target.value)}>
+                                            <label className="text-[10px] font-bold opacity-30 uppercase tracking-widest mb-3 block">Constructor Theme</label>
+                                            <select className="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl text-xs font-bold uppercase outline-none appearance-none"
+                                                value={formTeam} onChange={e => setFormTeam(e.target.value)}>
                                                 {Object.entries(TEAMS).map(([id, t]) => (
                                                     <option key={id} value={id}>{t.name}</option>
                                                 ))}
@@ -257,16 +254,16 @@
                                         </div>
 
                                         <button onClick={() => {
-                                            if(!newName) return;
-                                            updateDB([...participants, { id: Date.now(), name: newName, team: newTeam, predictions: [] }]);
-                                            setNewName('');
+                                            if(!formName) return;
+                                            updateDB([...participants, { id: Date.now(), name: formName, team: formTeam, predictions: [] }]);
+                                            setFormName('');
                                             setIsDrawerOpen(false);
-                                        }} className="w-full bg-red-600 py-5 rounded-2xl f1-font text-xs italic shadow-lg shadow-red-900/20">Add To Session</button>
+                                        }} className="w-full f1-bg-red py-5 rounded-2xl f1-font text-xs italic tracking-widest shadow-lg shadow-red-900/30">Sign Strategist</button>
                                     </div>
                                     
-                                    <p className="text-[8px] opacity-20 font-bold uppercase text-center italic tracking-widest leading-loose">
-                                        Data is synced to the paddock database.<br/>Constructors are assigned instantly.
-                                    </p>
+                                    <div className="mt-auto text-center border-t border-zinc-900 pt-8 opacity-20">
+                                        <p className="text-[9px] font-bold uppercase italic tracking-[0.2em]">Data encrypted & synced to cloud</p>
+                                    </div>
                                 </div>
                             </div>
                         )}
