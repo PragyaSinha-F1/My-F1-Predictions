@@ -17,14 +17,18 @@
         .f1-red { color: #e10600; }
         .f1-bg-red { background-color: #e10600; }
         .pillar { transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        .progress-ring__circle { transition: stroke-dashoffset 0.35s; transform: rotate(-90deg); transform-origin: 50% 50%; }
+        .progress-ring__circle { transition: stroke-dashoffset 0.5s ease; transform: rotate(-90deg); transform-origin: 50% 50%; }
+        
+        /* Fix for Dropdown visibility */
+        select option { background-color: #111 !important; color: white !important; }
+        select:focus { outline: 2px solid #e10600; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect } = React;
 
         const SB_URL = "https://gyzflcxqehesojhimokd.supabase.co"; 
         const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5emZsY3hxZWhlc29qaGltb2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMzQ4MjcsImV4cCI6MjA4MzcxMDgyN30.fOW7qr9cNEUp6otJU2f-tXtOJxRX4Wge9R76OXE-_Tk";
@@ -45,12 +49,10 @@
         };
 
         const CALENDAR_2026 = [
-            { id: "aus", race: "Australian GP", date: "2026-03-08T10:30:00+05:30" },
-            { id: "chn", race: "Chinese GP", date: "2026-03-15T12:30:00+05:30" },
-            { id: "jpn", race: "Japanese GP", date: "2026-03-29T10:30:00+05:30" },
-            { id: "bhr", race: "Bahrain GP", date: "2026-04-12T20:30:00+05:30" },
-            { id: "sau", race: "Saudi Arabian GP", date: "2026-04-19T22:30:00+05:30" },
-            { id: "mia", race: "Miami GP", date: "2026-05-03T23:30:00+05:30" }
+            { id: "aus", race: "Australian GP", date: "2026-03-08T10:30:00" },
+            { id: "chn", race: "Chinese GP", date: "2026-03-15T12:30:00" },
+            { id: "jpn", race: "Japanese GP", date: "2026-03-29T10:30:00" },
+            { id: "bhr", race: "Bahrain GP", date: "2026-04-12T20:30:00" }
         ];
 
         const App = () => {
@@ -58,20 +60,16 @@
             const [room, setRoom] = useState(null);
             const [activeSubRoomId, setActiveSubRoomId] = useState(null);
             const [activeUserId, setActiveUserId] = useState(null);
-            const [myRooms, setMyRooms] = useState([]);
-            
             const [countdownRace, setCountdownRace] = useState(CALENDAR_2026[0]);
             const [timeLeft, setTimeLeft] = useState("");
             const [roomCodeInput, setRoomCodeInput] = useState('');
             const [isDrawerOpen, setIsDrawerOpen] = useState(false);
             const [formName, setFormName] = useState('');
             const [formTeam, setFormTeam] = useState('ferrari');
-            const [newSubRoomName, setNewSubRoomName] = useState('');
 
             // --- PROGRESS TRACKER LOGIC ---
-            const racesDone = 2; // Hardcoded as requested
             const totalRaces = 24;
-            const progressPercent = (racesDone / totalRaces) * 100;
+            const progressPercent = ((room?.progress_done || 0) / totalRaces) * 100;
             const radius = 45;
             const circumference = 2 * Math.PI * radius;
             const offset = circumference - (progressPercent / 100) * circumference;
@@ -90,13 +88,26 @@
                 return () => clearInterval(timer);
             }, [countdownRace]);
 
-            // --- HELPER FUNCTIONS ---
-            const getSubRoomAcc = (userId, subRoomId) => {
-                const sub = room?.data?.sub_rooms?.find(s => s.id === subRoomId);
-                if (!sub) return 0;
-                const preds = sub.predictions?.filter(p => p.userId === userId) || [];
-                if (preds.length === 0) return 0;
-                return Math.round((preds.filter(p => p.done).length / preds.length) * 100);
+            // --- CORE DB FUNCTIONS ---
+            const updateRoomData = async (newData, extraFields = {}) => {
+                const { error } = await sb.from('f1_rooms').update({ data: newData, ...extraFields }).eq('code', room.code);
+                if (!error) {
+                    const { data } = await sb.from('f1_rooms').select().eq('code', room.code).single();
+                    setRoom(data);
+                }
+            };
+
+            const copyToClipboard = (text) => {
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(text).then(() => alert("Code Copied!"));
+                } else {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    try { document.execCommand('copy'); alert("Code Copied!"); } catch (err) { console.error(err); }
+                    document.body.removeChild(textArea);
+                }
             };
 
             const getSeasonAcc = (userId) => {
@@ -110,46 +121,44 @@
                 return total === 0 ? 0 : Math.round((correct / total) * 100);
             };
 
+            const getSubRoomAcc = (userId, subRoomId) => {
+                const sub = room?.data?.sub_rooms?.find(s => s.id === subRoomId);
+                const preds = sub?.predictions?.filter(p => p.userId === userId) || [];
+                return preds.length === 0 ? 0 : Math.round((preds.filter(p => p.done).length / preds.length) * 100);
+            };
+
             const sortedPartic = (accFunc, id = null) => {
                 return [...(room?.data?.participants || [])].sort((a,b) => accFunc(b.id, id) - accFunc(a.id, id));
             };
 
-            const updateDB = async (newData) => {
-                const { error } = await sb.from('f1_rooms').update({ data: newData }).eq('code', room.code);
-                if (!error) {
-                    const { data } = await sb.from('f1_rooms').select().eq('code', room.code).single();
-                    setRoom(data);
-                }
-            };
-
             // --- VIEWS ---
-
-            // LANDING PAGE
             if (view === 'landing') return (
                 <div className="min-h-screen p-6 flex flex-col items-center">
                     <h1 className="text-6xl f1-font italic mt-10 mb-8">F1<span className="f1-red">PADDOCK</span></h1>
-                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
-                        {/* Tracker & Countdown */}
-                        <div className="f1-glass rounded-[2.5rem] p-8 flex flex-col items-center justify-center text-center">
-                            <div className="relative mb-4">
+                        <div className="f1-glass rounded-[2.5rem] p-8 flex flex-col items-center text-center">
+                            <h2 className="f1-font text-xs opacity-40 mb-4 tracking-widest">GLOBAL TRACKER</h2>
+                            <div className="relative mb-6">
                                 <svg width="120" height="120">
                                     <circle className="text-white/5" stroke="currentColor" strokeWidth="8" fill="transparent" r={radius} cx="60" cy="60"/>
-                                    <circle className="f1-red progress-ring__circle" stroke="currentColor" strokeWidth="8" strokeDasharray={circumference} strokeDashoffset={offset} fill="transparent" r={radius} cx="60" cy="60"/>
+                                    <circle className="f1-red progress-ring__circle" stroke="currentColor" strokeWidth="8" strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" fill="transparent" r={radius} cx="60" cy="60"/>
                                 </svg>
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="f1-font text-xl">{racesDone}/{totalRaces}</span>
+                                    <span className="f1-font text-xl">{room?.progress_done || 0}/{totalRaces}</span>
                                     <span className="text-[8px] font-bold opacity-40">DONE</span>
                                 </div>
                             </div>
-                            <select className="bg-transparent f1-font text-xs f1-red outline-none mb-2" onChange={e => setCountdownRace(CALENDAR_2026.find(r => r.id === e.target.value))}>
-                                {CALENDAR_2026.map(r => <option key={r.id} value={r.id} className="bg-black">{r.race}</option>)}
+                            <div className="flex gap-2 mb-6">
+                                <button onClick={() => updateRoomData(room.data, {progress_done: Math.max(0, (room.progress_done || 0) - 1)})} className="bg-white/10 w-8 h-8 rounded-full">-</button>
+                                <button onClick={() => updateRoomData(room.data, {progress_done: Math.min(24, (room.progress_done || 0) + 1)})} className="bg-white/10 w-8 h-8 rounded-full">+</button>
+                            </div>
+                            <select className="bg-black/50 border border-white/10 rounded px-2 py-1 f1-font text-[10px] f1-red outline-none mb-2" onChange={e => setCountdownRace(CALENDAR_2026.find(r => r.id === e.target.value))}>
+                                {CALENDAR_2026.map(r => <option key={r.id} value={r.id}>{r.race}</option>)}
                             </select>
                             <div className="f1-font text-3xl tracking-tighter">{timeLeft}</div>
                         </div>
 
-                        {/* Join/Create */}
-                        <div className="f1-glass rounded-[2.5rem] p-8 flex flex-col space-y-4">
+                        <div className="f1-glass rounded-[2.5rem] p-8 flex flex-col space-y-4 justify-center">
                             <input className="w-full bg-transparent border-b border-white/10 p-4 text-center f1-font text-2xl outline-none" placeholder="ROOM CODE" value={roomCodeInput} onChange={e => setRoomCodeInput(e.target.value.toUpperCase())} />
                             <div className="grid grid-cols-2 gap-3">
                                 <button onClick={async () => {
@@ -157,8 +166,10 @@
                                     if(data) { setRoom(data); setView('main-room'); }
                                 }} className="f1-bg-red py-4 rounded-xl f1-font text-[10px]">JOIN ROOM</button>
                                 <button onClick={async () => {
+                                    const name = prompt("Enter Room Name:", "My Paddock");
+                                    if(!name) return;
                                     const code = Math.random().toString(36).substring(2,6).toUpperCase();
-                                    const {data} = await sb.from('f1_rooms').insert([{ code, data: {participants:[], sub_rooms:[]} }]).select().single();
+                                    const {data} = await sb.from('f1_rooms').insert([{ name, code, progress_done: 0, data: {participants:[], sub_rooms:[]} }]).select().single();
                                     setRoom(data); setView('main-room');
                                 }} className="bg-zinc-900 py-4 rounded-xl f1-font text-[10px]">CREATE ROOM</button>
                             </div>
@@ -167,24 +178,22 @@
                 </div>
             );
 
-            // MAIN ROOM DASHBOARD
             if (view === 'main-room') {
                 const podium = sortedPartic(getSeasonAcc);
                 return (
                     <div className="max-w-5xl mx-auto p-6 pt-10">
                         <div className="flex justify-between items-center mb-10">
-                            <button onClick={() => setView('landing')} className="f1-font text-[10px] opacity-40 hover:opacity-100">← EXIT</button>
+                            <button onClick={() => setView('landing')} className="f1-font text-[10px] opacity-40">← EXIT</button>
                             <div className="flex flex-col items-center">
-                                <h2 className="f1-font text-4xl italic tracking-tighter bg-white/5 px-8 py-2 rounded-full">{room.name || "UNNAMED ROOM"}</h2>
+                                <h2 className="f1-font text-4xl italic tracking-tighter bg-white/5 px-8 py-2 rounded-full text-center">{room.name}</h2>
                                 <div className="flex items-center gap-2 mt-2">
                                     <span className="text-[10px] font-bold opacity-30 italic">{room.code}</span>
-                                    <button onClick={() => navigator.clipboard.writeText(room.code)} className="text-[8px] bg-white/10 px-2 py-1 rounded">COPY</button>
+                                    <button onClick={() => copyToClipboard(room.code)} className="text-[8px] bg-white/10 px-2 py-1 rounded hover:bg-white/20">COPY CODE</button>
                                 </div>
                             </div>
                             <button onClick={() => setIsDrawerOpen(true)} className="f1-bg-red px-6 py-2 rounded-lg f1-font text-[10px]">MANAGE GRID</button>
                         </div>
 
-                        {/* Podium Visual (Season) */}
                         <div className="f1-glass rounded-[3rem] h-[350px] flex items-end justify-center gap-4 p-8 mb-10 relative overflow-hidden">
                             {[podium[1], podium[0], podium[2]].map((p, i) => (
                                 <div key={i} className="flex-1 flex flex-col items-center">
@@ -200,8 +209,8 @@
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="f1-font text-xl italic opacity-40">SUB ROOMS</h3>
                             <button onClick={() => {
-                                const name = prompt("Enter Sub-Room Name (e.g. Monaco GP, Season Bingo):");
-                                if(name) updateDB({...room.data, sub_rooms: [...room.data.sub_rooms, {id: Date.now(), name, predictions: []}]});
+                                const name = prompt("Enter Sub-Room Name:");
+                                if(name) updateRoomData({...room.data, sub_rooms: [...room.data.sub_rooms, {id: Date.now(), name, predictions: []}]});
                             }} className="f1-bg-red px-4 py-2 rounded-lg f1-font text-[10px]">CREATE SUB ROOM +</button>
                         </div>
 
@@ -214,27 +223,25 @@
                             ))}
                         </div>
 
-                        {/* Manage Grid Drawer */}
                         {isDrawerOpen && (
                             <div className="fixed inset-0 z-[100] flex justify-end">
                                 <div className="absolute inset-0 bg-black/80" onClick={() => setIsDrawerOpen(false)} />
-                                <div className="relative w-full max-w-sm bg-black border-l border-white/10 p-10">
+                                <div className="relative w-full max-w-sm bg-[#0a0a0a] border-l border-white/10 p-10">
                                     <h2 className="f1-font text-2xl mb-6">Manage Grid</h2>
-                                    <input className="w-full bg-white/5 p-4 rounded-xl mb-4 outline-none border border-white/10" placeholder="PARTICIPANT NAME" value={formName} onChange={e => setFormName(e.target.value)} />
-                                    <select className="w-full bg-white/5 p-4 rounded-xl mb-4 f1-font text-xs" value={formTeam} onChange={e => setFormTeam(e.target.value)}>
-                                        {Object.entries(TEAMS).map(([id, t]) => <option key={id} value={id}>{t.name}</option>)}
+                                    <input className="w-full bg-white/5 p-4 rounded-xl mb-4 outline-none border border-white/10 text-white" placeholder="PARTICIPANT NAME" value={formName} onChange={e => setFormName(e.target.value)} />
+                                    <select className="w-full bg-zinc-900 text-white p-4 rounded-xl mb-4 f1-font text-xs appearance-none border border-white/10" value={formTeam} onChange={e => setFormTeam(e.target.value)}>
+                                        {Object.entries(TEAMS).map(([id, t]) => <option key={id} value={id} className="bg-zinc-900 text-white">{t.name}</option>)}
                                     </select>
                                     <button onClick={() => {
                                         if(!formName) return;
-                                        updateDB({...room.data, participants: [...room.data.participants, {id: 'u'+Date.now(), name: formName, team: formTeam}]});
+                                        updateRoomData({...room.data, participants: [...room.data.participants, {id: 'u'+Date.now(), name: formName, team: formTeam}]});
                                         setFormName('');
                                     }} className="w-full f1-bg-red py-4 rounded-xl f1-font text-[10px] mb-8">ADD TO ROOM</button>
-                                    
-                                    <div className="space-y-2">
+                                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
                                         {room.data.participants.map(p => (
-                                            <div key={p.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                            <div key={p.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border-l-4" style={{borderColor: TEAMS[p.team].color}}>
                                                 <span className="f1-font text-xs">{p.name}</span>
-                                                <button onClick={() => updateDB({...room.data, participants: room.data.participants.filter(x => x.id !== p.id)})} className="text-red-600 font-bold text-[10px]">DELETE</button>
+                                                <button onClick={() => updateRoomData({...room.data, participants: room.data.participants.filter(x => x.id !== p.id)})} className="text-red-600 font-bold text-[10px]">DELETE</button>
                                             </div>
                                         ))}
                                     </div>
@@ -245,35 +252,31 @@
                 );
             }
 
-            // SUB-ROOM VIEW
             if (view === 'sub-room') {
                 const sub = room.data.sub_rooms.find(s => s.id === activeSubRoomId);
                 const podium = sortedPartic(getSubRoomAcc, activeSubRoomId);
-                
                 return (
                     <div className="max-w-5xl mx-auto p-6 pt-10">
                         <div className="flex justify-between items-center mb-10">
                             <button onClick={() => setView('main-room')} className="f1-font text-[10px] opacity-40">← BACK</button>
-                            <h2 className="f1-font text-4xl italic bg-white/5 px-8 py-2 rounded-full">{sub.name}</h2>
+                            <h2 className="f1-font text-4xl italic bg-white/5 px-8 py-2 rounded-full">{sub?.name}</h2>
                             <div className="w-10"></div>
                         </div>
-
                         <div className="f1-glass rounded-[3rem] h-[300px] flex items-end justify-center gap-4 p-8 mb-12">
                             {[podium[1], podium[0], podium[2]].map((p, i) => (
                                 <div key={i} className="flex-1 flex flex-col items-center">
                                     <p className="f1-font text-[9px] mb-2">{p?.name || '---'}</p>
-                                    <div className="pillar w-full rounded-t-xl flex items-center justify-center f1-font italic" 
+                                    <div className="pillar w-full rounded-t-xl flex items-center justify-center f1-font italic text-black" 
                                         style={{ height: i===1 ? '160px' : i===0 ? '110px' : '70px', background: TEAMS[p?.team]?.color || '#222' }}>
                                         {i===1?'1':i===0?'2':'3'}
                                     </div>
                                 </div>
                             ))}
                         </div>
-
                         <div className="grid grid-cols-1 gap-3">
                             {room.data.participants.map(p => (
                                 <div key={p.id} onClick={() => {setActiveUserId(p.id); setView('user-preds');}} className="p-1 rounded-2xl cursor-pointer" style={{background: TEAMS[p.team].color}}>
-                                    <div className="bg-black/90 rounded-[0.9rem] p-5 flex justify-between items-center">
+                                    <div className="bg-black/90 rounded-[0.9rem] p-5 flex justify-between items-center hover:bg-black/80 transition">
                                         <span className="f1-font text-lg italic">{p.name}</span>
                                         <span className="f1-font text-xl f1-red">{getSubRoomAcc(p.id, activeSubRoomId)}%</span>
                                     </div>
@@ -284,40 +287,36 @@
                 );
             }
 
-            // USER PREDICTIONS (INSIDE SUB-ROOM)
             if (view === 'user-preds') {
                 const sub = room.data.sub_rooms.find(s => s.id === activeSubRoomId);
                 const user = room.data.participants.find(u => u.id === activeUserId);
                 const [newP, setNewP] = useState('');
-
                 return (
                     <div className="max-w-xl mx-auto p-6 pt-10">
-                        <button onClick={() => setView('sub-room')} className="f1-font text-[10px] opacity-40 mb-8">← BACK TO PODIUM</button>
-                        <h2 className="f1-font text-3xl italic mb-2">{user.name}</h2>
-                        <p className="text-[10px] font-bold opacity-30 uppercase tracking-widest mb-10">{sub.name} Predictions</p>
-
+                        <button onClick={() => setView('sub-room')} className="f1-font text-[10px] opacity-40 mb-8">← BACK</button>
+                        <h2 className="f1-font text-3xl italic mb-2">{user?.name}</h2>
+                        <p className="text-[10px] font-bold opacity-30 uppercase tracking-widest mb-10">{sub?.name} Predictions</p>
                         <div className="flex gap-2 mb-8">
-                            <input className="flex-1 bg-white/5 p-4 rounded-xl outline-none f1-font text-sm italic" placeholder="Hamilton P1..." value={newP} onChange={e => setNewP(e.target.value)} />
+                            <input className="flex-1 bg-white/5 p-4 rounded-xl outline-none f1-font text-sm italic" placeholder="Prediction..." value={newP} onChange={e => setNewP(e.target.value)} />
                             <button onClick={() => {
                                 if(!newP) return;
                                 const updatedSub = {...sub, predictions: [...sub.predictions, {id: Date.now(), userId: user.id, text: newP, done: false}]};
-                                updateDB({...room.data, sub_rooms: room.data.sub_rooms.map(s => s.id === activeSubRoomId ? updatedSub : s)});
+                                updateRoomData({...room.data, sub_rooms: room.data.sub_rooms.map(s => s.id === activeSubRoomId ? updatedSub : s)});
                                 setNewP('');
                             }} className="f1-bg-red px-6 rounded-xl f1-font text-xs">ADD</button>
                         </div>
-
                         <div className="space-y-4">
-                            {sub.predictions.filter(pr => pr.userId === user.id).map(pr => (
+                            {sub?.predictions.filter(pr => pr.userId === user.id).map(pr => (
                                 <div key={pr.id} className="f1-glass p-5 rounded-2xl flex items-center justify-between">
                                     <span className={`italic ${pr.done ? 'line-through opacity-30' : ''}`}>{pr.text}</span>
-                                    <div className="flex gap-3">
+                                    <div className="flex gap-4">
                                         <input type="checkbox" checked={pr.done} onChange={() => {
                                             const updatedSub = {...sub, predictions: sub.predictions.map(p => p.id === pr.id ? {...p, done: !p.done} : p)};
-                                            updateDB({...room.data, sub_rooms: room.data.sub_rooms.map(s => s.id === activeSubRoomId ? updatedSub : s)});
-                                        }} className="w-6 h-6 accent-red-600" />
+                                            updateRoomData({...room.data, sub_rooms: room.data.sub_rooms.map(s => s.id === activeSubRoomId ? updatedSub : s)});
+                                        }} className="w-6 h-6 accent-red-600 cursor-pointer" />
                                         <button onClick={() => {
                                              const updatedSub = {...sub, predictions: sub.predictions.filter(p => p.id !== pr.id)};
-                                             updateDB({...room.data, sub_rooms: room.data.sub_rooms.map(s => s.id === activeSubRoomId ? updatedSub : s)});
+                                             updateRoomData({...room.data, sub_rooms: room.data.sub_rooms.map(s => s.id === activeSubRoomId ? updatedSub : s)});
                                         }} className="text-red-600 font-bold text-[10px]">REMOVE</button>
                                     </div>
                                 </div>
