@@ -1,21 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>F1 Paddock Prediction Engine</title>
 
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
     body {
       font-family: 'Inter', sans-serif;
       background: #050505;
       color: #ffffff;
+      margin: 0;
+      padding: 0;
       overflow-x: hidden;
     }
 
@@ -24,45 +28,60 @@
     .bg-f1-red { background-color: #e10600; }
 
     .glass {
-      background: rgba(255,255,255,0.03);
+      background: rgba(255, 255, 255, 0.03);
       backdrop-filter: blur(15px);
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .btn-primary {
       background: #e10600;
+      color: white;
       padding: 12px 24px;
       border-radius: 8px;
       font-weight: 600;
-      transition: 0.3s;
+      cursor: pointer;
+      transition: all 0.3s ease;
     }
-    .btn-primary:hover { background: #b30500; }
+
+    .btn-primary:hover {
+      background: #b30500;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(225, 6, 0, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
 
     .btn-danger {
       background: #dc2626;
-      padding: 8px 14px;
+      padding: 8px 16px;
       border-radius: 6px;
       font-weight: 600;
-      font-size: 14px;
     }
 
     .input-field {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
-      padding: 12px;
-      width: 100%;
+      padding: 12px 16px;
       color: white;
+      width: 100%;
     }
 
-    /* FIX 2: readable dropdown */
+    /* FIX #2: readable dropdown */
     select option {
-      background: #0b0b0b;
+      background-color: #0b0b0b;
       color: #ffffff;
     }
 
     .podium-bar {
+      transition: all 0.6s ease;
       border-radius: 8px 8px 0 0;
+      position: relative;
     }
 
     .overlay {
@@ -84,147 +103,161 @@
       border-radius: 16px;
       z-index: 1000;
       display: none;
-      width: 400px;
-      max-width: 90vw;
+      min-width: 400px;
     }
     .modal.show { display: block; }
   </style>
 </head>
 
 <body>
-<div id="root"></div>
+  <div id="root"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-<script type="text/babel">
-const { useState, useEffect } = React;
-const { createClient } = supabase;
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    const { createClient } = supabase;
 
-const supabaseClient = createClient(
-  'https://gyzflcxqehesojhimokd.supabase.co',
-  'YOUR_PUBLIC_ANON_KEY'
-);
-
-const TEAM_COLORS = {
-  "Ferrari": "#DC0000",
-  "Mercedes": "#00D2BE",
-  "Red Bull Racing": "#0600EF",
-  "McLaren": "#FF8700",
-  "Aston Martin": "#006F62",
-  "Alpine": "#0090FF",
-  "Williams": "#005AFF",
-  "Haas": "#FFFFFF",
-  "VCARB": "#1E1E1E",
-  "Audi": "#2B2B2B",
-  "Cadillac": "#0A1AFF"
-};
-const TEAMS = Object.keys(TEAM_COLORS);
-
-const generateId = () => Math.random().toString(36).slice(2,11);
-
-function App() {
-  const [stage,setStage]=useState('lander');
-  const [currentRoom,setCurrentRoom]=useState(null);
-  const [recentRooms,setRecentRooms]=useState([]);
-  const [showPredictionModal,setShowPredictionModal]=useState(false);
-  const [predictionText,setPredictionText]=useState('');
-  const [predictionUser,setPredictionUser]=useState('');
-
-  useEffect(()=>{
-    setRecentRooms(JSON.parse(localStorage.getItem('recentRooms')||'[]'));
-  },[]);
-
-  /* FIX 1: delete room */
-  const deleteRoom = async(code)=>{
-    if(!confirm('Delete this room permanently?')) return;
-    await supabaseClient.from('f1_rooms').delete().eq('code',code);
-    const updated = recentRooms.filter(r=>r.code!==code);
-    localStorage.setItem('recentRooms',JSON.stringify(updated));
-    setRecentRooms(updated);
-  };
-
-  /* FIX 3: podium layout */
-  const renderPodium = (participants) => (
-    <div className="flex justify-center gap-8 items-end h-72">
-      {participants.slice(0,3).map((p,i)=>(
-        <div key={p.id} className="flex flex-col items-center w-32">
-          <div className="mb-3 text-center">
-            <div className="font-bold">{p.name}</div>
-            <div className="text-sm text-gray-400">{p.accuracy.toFixed(1)}%</div>
-          </div>
-          <div
-            className="podium-bar w-full"
-            style={{
-              height: `${40 + p.accuracy}px`,
-              background: TEAM_COLORS[p.team] || '#e10600'
-            }}
-          ></div>
-          <div className="mt-2 orbitron text-xl">{i+1}</div>
-        </div>
-      ))}
-    </div>
-  );
-
-  /* FIX 4: understanding modal */
-  const renderPredictionModal = () => (
-    <>
-      <div className={`overlay ${showPredictionModal?'show':''}`}
-        onClick={()=>setShowPredictionModal(false)} />
-      <div className={`modal ${showPredictionModal?'show':''}`}>
-        <h2 className="orbitron text-xl mb-4">Add Prediction</h2>
-        <textarea
-          className="input-field mb-4"
-          rows="3"
-          value={predictionText}
-          onChange={e=>setPredictionText(e.target.value)}
-        />
-        <button className="btn-primary w-full"
-          onClick={()=>{
-            if(predictionText.trim()){
-              alert('Prediction added (logic unchanged)');
-              setPredictionText('');
-              setShowPredictionModal(false);
-            }
-          }}>
-          Save Prediction
-        </button>
-      </div>
-    </>
-  );
-
-  /* LANDER */
-  if(stage==='lander'){
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="glass p-8 rounded-xl w-full max-w-md">
-          <h1 className="orbitron text-3xl text-center mb-6">F1 PADDOCK</h1>
-          {recentRooms.map(r=>(
-            <div key={r.code}
-              className="flex justify-between items-center p-3 bg-white/5 rounded mb-2">
-              <span>{r.name}</span>
-              <button className="btn-danger"
-                onClick={()=>deleteRoom(r.code)}>🗑️</button>
-            </div>
-          ))}
-        </div>
-      </div>
+    const supabaseClient = createClient(
+      'https://gyzflcxqehesojhimokd.supabase.co',
+      'YOUR_PUBLIC_ANON_KEY'
     );
-  }
 
-  return (
-    <div className="p-8">
-      <button className="btn-primary" onClick={()=>setShowPredictionModal(true)}>
-        Add Prediction
-      </button>
-      {renderPredictionModal()}
-    </div>
-  );
-}
+    /* FIX #1: 2026 GRID */
+    const TEAM_COLORS = {
+      "Ferrari": "#DC0000",
+      "Mercedes": "#00D2BE",
+      "Red Bull Racing": "#0600EF",
+      "McLaren": "#FF8700",
+      "Alpine": "#0090FF",
+      "Aston Martin": "#006F62",
+      "Williams": "#005AFF",
+      "Haas": "#FFFFFF",
+      "VCARB": "#1E1E1E",
+      "Audi": "#2B2B2B",
+      "Cadillac": "#0A1AFF"
+    };
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
-</script>
-</body>
-</html>
+    const TEAMS = Object.keys(TEAM_COLORS);
+
+    const generateRoomCode = () => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let code = '';
+      for (let i = 0; i < 4; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+      }
+      return code;
+    };
+
+    const generateId = () => Math.random().toString(36).slice(2,11);
+
+    const saveRecentRoom = (code, name) => {
+      const recent = JSON.parse(localStorage.getItem('recentRooms') || '[]');
+      const updated = [{ code, name, timestamp: Date.now() }, ...recent.filter(r => r.code !== code)].slice(0, 5);
+      localStorage.setItem('recentRooms', JSON.stringify(updated));
+    };
+
+    const getRecentRooms = () =>
+      JSON.parse(localStorage.getItem('recentRooms') || '[]');
+
+    // ---- APP COMPONENT START ----
+    function App() {
+      const [stage, setStage] = useState('lander');
+      const [currentRoom, setCurrentRoom] = useState(null);
+      const [currentSubRoom, setCurrentSubRoom] = useState(null);
+      const [currentUser, setCurrentUser] = useState(null);
+      const [joinCode, setJoinCode] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState('');
+      const [recentRooms, setRecentRooms] = useState([]);
+      const [showAddPredictionModal, setShowAddPredictionModal] = useState(false);
+      const [predictionText, setPredictionText] = useState('');
+      const channelRef = useRef(null);
+
+      useEffect(() => {
+        setRecentRooms(getRecentRooms());
+      }, []);
+
+      // --- LANDER RENDER (with delete button) ---
+      const renderLander = () => (
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="max-w-md w-full">
+            <h1 className="orbitron text-5xl text-center mb-8">F1 PADDOCK</h1>
+
+            <div className="glass p-6 rounded-xl mb-6">
+              <input
+                className="input-field mb-4 text-center uppercase"
+                placeholder="ENTER CODE"
+                value={joinCode}
+                onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                maxLength={4}
+              />
+              <button className="btn-primary w-full mb-3" onClick={() => joinRoom(joinCode)}>
+                Join Paddock
+              </button>
+              <button className="btn-secondary w-full" onClick={createRoom}>
+                Create New Paddock
+              </button>
+              {error && <p className="text-red-500 mt-3 text-center">{error}</p>}
+            </div>
+
+            {recentRooms.length > 0 && (
+              <div className="glass p-4 rounded-xl">
+                <h3 className="orbitron mb-3">Recent Paddocks</h3>
+                {recentRooms.map(r => (
+                  <div key={r.code} className="flex justify-between items-center mb-2 bg-white/5 p-2 rounded">
+                    <span>{r.name}</span>
+                    <button
+                      className="btn-danger"
+                      onClick={async () => {
+                        if (confirm('Delete this room permanently?')) {
+                          await supabaseClient.from('f1_rooms').delete().eq('code', r.code);
+                          const updated = recentRooms.filter(x => x.code !== r.code);
+                          localStorage.setItem('recentRooms', JSON.stringify(updated));
+                          setRecentRooms(updated);
+                        }
+                      }}
+                    >🗑️</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+
+      // JOIN + CREATE (unchanged logic)
+      const joinRoom = async (code) => {
+        setLoading(true);
+        setError('');
+        try {
+          const { data, error } = await supabaseClient
+            .from('f1_rooms')
+            .select('*')
+            .eq('code', code)
+            .single();
+          if (error) throw error;
+          setCurrentRoom(data);
+          saveRecentRoom(data.code, data.name);
+          setStage('paddock');
+        } catch {
+          setError('Room not found');
+        }
+        setLoading(false);
+      };
+
+      const createRoom = async () => {
+        const code = generateRoomCode();
+        const { data } = await supabaseClient.from('f1_rooms').insert([{
+          name: `Paddock ${code}`,
+          code,
+          progress_done: 0,
+          data: { participants: [], sub_rooms: [] }
+        }]).select().single();
+        setCurrentRoom(data);
+        saveRecentRoom(data.code, data.name);
+        setStage('paddock');
+      };
