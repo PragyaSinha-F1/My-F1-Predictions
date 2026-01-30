@@ -4,16 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>F1 Paddock Prediction Engine</title>
-
+  
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-
+  
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
+  
   <style>
+    select.input-field {
+  color: white;
+}
+
+select.input-field option {
+  background-color: #0a0a0a;
+  color: white;
+}
     body {
       font-family: 'Inter', sans-serif;
       background: #050505;
@@ -22,15 +30,39 @@
       padding: 0;
       overflow-x: hidden;
     }
-
-    .orbitron { font-family: 'Orbitron', sans-serif; }
-    .f1-red { color: #e10600; }
-    .bg-f1-red { background-color: #e10600; }
-
+    
+    .orbitron {
+      font-family: 'Orbitron', sans-serif;
+    }
+    
+    .glow-text {
+      text-shadow: 0 0 20px rgba(225, 6, 0, 0.8), 0 0 40px rgba(225, 6, 0, 0.4);
+    }
+    
     .glass {
       background: rgba(255, 255, 255, 0.03);
       backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
       border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .f1-red {
+      color: #e10600;
+    }
+    
+    .bg-f1-red {
+      background-color: #e10600;
+    }
+    
+    .podium-bar {
+      transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      border-radius: 8px 8px 0 0;
+    }
+    
+    .striped {
+      background: linear-gradient(45deg, var(--color1) 0%, var(--color1) 50%, var(--color2) 50%, var(--color2) 100%);
+      background-size: 40px 40px;
     }
 
     .btn-primary {
@@ -39,120 +71,246 @@
       padding: 12px 24px;
       border-radius: 8px;
       font-weight: 600;
+      border: none;
       cursor: pointer;
       transition: all 0.3s ease;
     }
-
+    
     .btn-primary:hover {
       background: #b30500;
       transform: translateY(-2px);
       box-shadow: 0 8px 20px rgba(225, 6, 0, 0.4);
     }
-
-    .btn-secondary {
-      background: rgba(255,255,255,0.1);
-      padding: 10px 20px;
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.2);
-    }
-
-    .btn-danger {
-      background: #dc2626;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-weight: 600;
-    }
-
+    
     .input-field {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
       padding: 12px 16px;
       color: white;
+      font-size: 16px;
       width: 100%;
+      transition: all 0.3s ease;
     }
-
-    /* FIX #2: readable dropdown */
-    select option {
-      background-color: #0b0b0b;
-      color: #ffffff;
+    
+    .input-field:focus {
+      outline: none;
+      border-color: #e10600;
+      background: rgba(255, 255, 255, 0.08);
     }
-
-    .podium-bar {
-      transition: all 0.6s ease;
-      border-radius: 8px 8px 0 0;
+    
+    .race-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .race-card:hover {
+      border-color: #e10600;
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(225, 6, 0, 0.3);
+    }
+    
+    .progress-circle {
       position: relative;
+      width: 120px;
+      height: 120px;
     }
-
+    
+    .side-drawer {
+      position: fixed;
+      top: 0;
+      right: -100%;
+      width: 400px;
+      height: 100vh;
+      background: rgba(10, 10, 10, 0.98);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+      overflow-y: auto;
+      padding: 30px;
+    }
+    
+    .side-drawer.open {
+      right: 0;
+    }
+    
     .overlay {
       position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      display: none;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
       z-index: 999;
+      display: none;
     }
-    .overlay.show { display: block; }
-
+    
+    .overlay.show {
+      display: block;
+    }
+    
     .modal {
       position: fixed;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: rgba(10,10,10,0.98);
-      padding: 30px;
+      background: rgba(10, 10, 10, 0.98);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 16px;
-      z-index: 1000;
-      display: none;
+      padding: 30px;
+      z-index: 1001;
       min-width: 400px;
+      max-width: 90vw;
+      display: none;
     }
-    .modal.show { display: block; }
+    
+    .modal.show {
+      display: block;
+    }
+    
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    
+    .btn-danger {
+      background: #dc2626;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 14px;
+    }
+    
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+    
+    .btn-success {
+      background: #16a34a;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-success:hover {
+      background: #15803d;
+    }
+    
+    .prediction-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.3s ease;
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .prediction-card:hover {
+      border-color: rgba(225, 6, 0, 0.5);
+      transform: translateY(-2px);
+    }
+    
+    .prediction-card.done {
+      border-color: rgba(34, 197, 94, 0.5);
+      background: rgba(34, 197, 94, 0.05);
+    }
+    
+    .checkbox-custom {
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      accent-color: #22c55e;
+    }
   </style>
 </head>
-
 <body>
   <div id="root"></div>
 
+  <!-- Supabase JS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- React CDN -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel Standalone for JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
     const { createClient } = supabase;
 
+    // Initialize Supabase client
     const supabaseClient = createClient(
       'https://gyzflcxqehesojhimokd.supabase.co',
-      'YOUR_PUBLIC_ANON_KEY'
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5emZsY3hxZWhlc29qaGltb2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMzQ4MjcsImV4cCI6MjA4MzcxMDgyN30.fOW7qr9cNEUp6otJU2f-tXtOJxRX4Wge9R76OXE-_Tk'
     );
 
-    /* FIX #1: 2026 GRID */
+    // F1 Team Colors
     const TEAM_COLORS = {
-      "Ferrari": "#DC0000",
-      "Mercedes": "#00D2BE",
-      "Red Bull Racing": "#0600EF",
-      "McLaren": "#FF8700",
-      "Alpine": "#0090FF",
-      "Aston Martin": "#006F62",
-      "Williams": "#005AFF",
-      "Haas": "#FFFFFF",
-      "VCARB": "#1E1E1E",
-      "Audi": "#2B2B2B",
-      "Cadillac": "#0A1AFF"
+      'Mercedes': '#00D2BE',
+      'Red Bull Racing': '#0600EF',
+      'Ferrari': '#DC0000',
+      'McLaren': '#FF8700',
+      'Alpine': '#0090FF',
+      'Aston Martin': '#006F62',
+      'Alfa Romeo': '#900000',
+      'Haas': '#FFFFFF',
+      'AlphaTauri': '#2B4562',
+      'Williams': '#005AFF'
     };
 
     const TEAMS = Object.keys(TEAM_COLORS);
 
+    // Utility Functions
     const generateRoomCode = () => {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       let code = '';
       for (let i = 0; i < 4; i++) {
-        code += chars[Math.floor(Math.random() * chars.length)];
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
       }
       return code;
     };
 
-    const generateId = () => Math.random().toString(36).slice(2,11);
+    const generateId = () => Math.random().toString(36).substr(2, 9);
 
     const saveRecentRoom = (code, name) => {
       const recent = JSON.parse(localStorage.getItem('recentRooms') || '[]');
@@ -160,325 +318,1093 @@
       localStorage.setItem('recentRooms', JSON.stringify(updated));
     };
 
-    const getRecentRooms = () =>
-      JSON.parse(localStorage.getItem('recentRooms') || '[]');
+    const getRecentRooms = () => {
+      return JSON.parse(localStorage.getItem('recentRooms') || '[]');
+    };
 
-    // ---- APP COMPONENT START ----
+    // Calculate accuracy for a participant
+    const calculateAccuracy = (room, userId, subRoomId = null) => {
+      if (!room || !room.data) return 0;
+      
+      let totalPredictions = 0;
+      let correctPredictions = 0;
+
+      if (subRoomId) {
+        // Calculate for specific sub-room
+        const subRoom = room.data.sub_rooms.find(sr => sr.id === subRoomId);
+        if (subRoom) {
+          const userPredictions = subRoom.predictions.filter(p => p.userId === userId);
+          totalPredictions = userPredictions.length;
+          correctPredictions = userPredictions.filter(p => p.done).length;
+        }
+      } else {
+        // Calculate across all sub-rooms
+        room.data.sub_rooms.forEach(subRoom => {
+          const userPredictions = subRoom.predictions.filter(p => p.userId === userId);
+          totalPredictions += userPredictions.length;
+          correctPredictions += userPredictions.filter(p => p.done).length;
+        });
+      }
+
+      return totalPredictions === 0 ? 0 : (correctPredictions / totalPredictions) * 100;
+    };
+
+    // Get sorted participants by accuracy
+    const getSortedParticipants = (room, subRoomId = null) => {
+      if (!room || !room.data || !room.data.participants) return [];
+      
+      return room.data.participants.map(p => ({
+        ...p,
+        accuracy: calculateAccuracy(room, p.id, subRoomId)
+      })).sort((a, b) => b.accuracy - a.accuracy);
+    };
+
+    // Main App Component
     function App() {
-      const [stage, setStage] = useState('lander');
+      const [stage, setStage] = useState('lander'); // lander, paddock, race-grid, verdicts
       const [currentRoom, setCurrentRoom] = useState(null);
       const [currentSubRoom, setCurrentSubRoom] = useState(null);
       const [currentUser, setCurrentUser] = useState(null);
       const [joinCode, setJoinCode] = useState('');
       const [loading, setLoading] = useState(false);
       const [error, setError] = useState('');
+      const [drawerOpen, setDrawerOpen] = useState(false);
       const [recentRooms, setRecentRooms] = useState([]);
+      const [showAddRaceModal, setShowAddRaceModal] = useState(false);
       const [showAddPredictionModal, setShowAddPredictionModal] = useState(false);
-      const [predictionText, setPredictionText] = useState('');
+      const [selectedUserForPrediction, setSelectedUserForPrediction] = useState(null);
       const channelRef = useRef(null);
 
+      // Load recent rooms on mount
       useEffect(() => {
         setRecentRooms(getRecentRooms());
       }, []);
 
-      // --- LANDER RENDER (with delete button) ---
+      // Realtime subscription
+      useEffect(() => {
+        if (currentRoom && currentRoom.code) {
+          const channel = supabaseClient
+            .channel(`room-${currentRoom.code}`)
+            .on(
+              'postgres_changes',
+              {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'f1_rooms',
+                filter: `code=eq.${currentRoom.code}`
+              },
+              (payload) => {
+                console.log('Real-time update received:', payload);
+                setCurrentRoom(payload.new);
+              }
+            )
+            .subscribe();
+
+          channelRef.current = channel;
+
+          return () => {
+            supabaseClient.removeChannel(channel);
+          };
+        }
+      }, [currentRoom?.code]);
+const deleteRoom = async (code) => {
+  if (!confirm(`Delete room ${code}? This cannot be undone.`)) return;
+
+  const { error } = await supabaseClient
+    .from('f1_rooms')
+    .delete()
+    .eq('code', code);
+
+  if (!error) {
+    const updated = getRecentRooms().filter(r => r.code !== code);
+    localStorage.setItem('recentRooms', JSON.stringify(updated));
+    setRecentRooms(updated);
+  } else {
+    alert('Failed to delete room.');
+  }
+};
+      // Join Room
+      const joinRoom = async (code) => {
+        setLoading(true);
+        setError('');
+        
+        try {
+          const { data, error: fetchError } = await supabaseClient
+            .from('f1_rooms')
+            .select('*')
+            .eq('code', code.toUpperCase())
+            .single();
+
+          if (fetchError) throw new Error('Room not found');
+          
+          setCurrentRoom(data);
+          saveRecentRoom(data.code, data.name);
+          setRecentRooms(getRecentRooms());
+          setStage('paddock');
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Create Room
+      const createRoom = async () => {
+        setLoading(true);
+        setError('');
+        
+        try {
+          const code = generateRoomCode();
+          const roomName = `Paddock ${code}`;
+          
+          const { data, error: insertError } = await supabaseClient
+            .from('f1_rooms')
+            .insert([{
+              name: roomName,
+              code: code,
+              progress_done: 0,
+              data: { participants: [], sub_rooms: [] }
+            }])
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          
+          setCurrentRoom(data);
+          saveRecentRoom(data.code, data.name);
+          setRecentRooms(getRecentRooms());
+          setStage('paddock');
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Add Participant
+      const addParticipant = async (name, team) => {
+        if (!name || !team) return;
+        
+        const newParticipant = {
+          id: generateId(),
+          name,
+          team
+        };
+
+        const updatedData = {
+          ...currentRoom.data,
+          participants: [...currentRoom.data.participants, newParticipant]
+        };
+
+        const { data, error } = await supabaseClient
+          .from('f1_rooms')
+          .update({ data: updatedData })
+          .eq('id', currentRoom.id)
+          .select()
+          .single();
+
+        if (!error) {
+          setCurrentRoom(data);
+        }
+      };
+
+      // Add Sub-Room (Race)
+      const addSubRoom = async (name) => {
+        if (!name) return;
+        
+        const newSubRoom = {
+          id: generateId(),
+          name,
+          predictions: []
+        };
+
+        const updatedData = {
+          ...currentRoom.data,
+          sub_rooms: [...currentRoom.data.sub_rooms, newSubRoom]
+        };
+
+        const { data, error } = await supabaseClient
+          .from('f1_rooms')
+          .update({ 
+            data: updatedData
+          })
+          .eq('id', currentRoom.id)
+          .select()
+          .single();
+
+        if (!error) {
+          setCurrentRoom(data);
+          setShowAddRaceModal(false);
+        }
+      };
+      
+      // Update Progress Manually
+      const updateProgress = async (newProgress) => {
+        const { data, error } = await supabaseClient
+          .from('f1_rooms')
+          .update({ progress_done: newProgress })
+          .eq('id', currentRoom.id)
+          .select()
+          .single();
+
+        if (!error) {
+          setCurrentRoom(data);
+        }
+      };
+
+      // Add Prediction
+      const addPrediction = async (subRoomId, userId, text) => {
+        if (!text || !userId) return;
+        
+        const newPrediction = {
+          id: generateId(),
+          userId,
+          text,
+          done: false
+        };
+
+        // Optimistic update - update local state immediately
+        const updatedSubRooms = currentRoom.data.sub_rooms.map(sr => {
+          if (sr.id === subRoomId) {
+            return {
+              ...sr,
+              predictions: [...sr.predictions, newPrediction]
+            };
+          }
+          return sr;
+        });
+
+        const updatedData = {
+          ...currentRoom.data,
+          sub_rooms: updatedSubRooms
+        };
+
+        // Update local state immediately for instant UI update
+        setCurrentRoom({...currentRoom, data: updatedData});
+        setShowAddPredictionModal(false);
+
+        // Then sync with database
+        const { data, error } = await supabaseClient
+          .from('f1_rooms')
+          .update({ data: updatedData })
+          .eq('id', currentRoom.id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error saving prediction:', error);
+        }
+      };
+      
+      // Remove Participant
+      const removeParticipant = async (participantId) => {
+        const updatedParticipants = currentRoom.data.participants.filter(p => p.id !== participantId);
+        
+        // Also remove all predictions by this participant
+        const updatedSubRooms = currentRoom.data.sub_rooms.map(sr => ({
+          ...sr,
+          predictions: sr.predictions.filter(p => p.userId !== participantId)
+        }));
+
+        const updatedData = {
+          ...currentRoom.data,
+          participants: updatedParticipants,
+          sub_rooms: updatedSubRooms
+        };
+
+        const { data, error } = await supabaseClient
+          .from('f1_rooms')
+          .update({ data: updatedData })
+          .eq('id', currentRoom.id)
+          .select()
+          .single();
+
+        if (!error) {
+          setCurrentRoom(data);
+        }
+      };
+      
+      // Copy Room Code
+      const copyRoomCode = () => {
+        navigator.clipboard.writeText(currentRoom.code);
+        alert('Room code copied to clipboard!');
+      };
+      
+      // Leave Room
+      const leaveRoom = () => {
+        setCurrentRoom(null);
+        setCurrentSubRoom(null);
+        setCurrentUser(null);
+        setStage('lander');
+      };
+
+      // Toggle Prediction Done
+      const togglePredictionDone = async (subRoomId, predictionId) => {
+        // Optimistic update
+        const updatedSubRooms = currentRoom.data.sub_rooms.map(sr => {
+          if (sr.id === subRoomId) {
+            return {
+              ...sr,
+              predictions: sr.predictions.map(p => 
+                p.id === predictionId ? { ...p, done: !p.done } : p
+              )
+            };
+          }
+          return sr;
+        });
+
+        const updatedData = {
+          ...currentRoom.data,
+          sub_rooms: updatedSubRooms
+        };
+
+        // Update local state immediately
+        setCurrentRoom({...currentRoom, data: updatedData});
+
+        // Then sync with database
+        const { data, error } = await supabaseClient
+          .from('f1_rooms')
+          .update({ data: updatedData })
+          .eq('id', currentRoom.id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error toggling prediction:', error);
+        }
+      };
+
+      // Delete Prediction
+      const deletePrediction = async (subRoomId, predictionId) => {
+        // Optimistic update
+        const updatedSubRooms = currentRoom.data.sub_rooms.map(sr => {
+          if (sr.id === subRoomId) {
+            return {
+              ...sr,
+              predictions: sr.predictions.filter(p => p.id !== predictionId)
+            };
+          }
+          return sr;
+        });
+
+        const updatedData = {
+          ...currentRoom.data,
+          sub_rooms: updatedSubRooms
+        };
+
+        // Update local state immediately
+        setCurrentRoom({...currentRoom, data: updatedData});
+
+        // Then sync with database
+        const { data, error } = await supabaseClient
+          .from('f1_rooms')
+          .update({ data: updatedData })
+          .eq('id', currentRoom.id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error deleting prediction:', error);
+        }
+      };
+
+      // Render Functions
       const renderLander = () => (
         <div className="min-h-screen flex items-center justify-center p-4">
           <div className="max-w-md w-full">
-            <h1 className="orbitron text-5xl text-center mb-8">F1 PADDOCK</h1>
+            <div className="text-center mb-12">
+              <h1 className="orbitron text-6xl font-black italic glow-text mb-4">F1</h1>
+              <h2 className="orbitron text-2xl font-bold f1-red">🏁F1 PADDOCK</h2>
+            </div>
 
-            <div className="glass p-6 rounded-xl mb-6">
+            <div className="glass rounded-2xl p-8 mb-6">
               <input
-                className="input-field mb-4 text-center uppercase"
-                placeholder="ENTER CODE"
+                type="text"
+                placeholder="Enter 4-Digit Code"
+                className="input-field mb-4 text-center text-2xl tracking-wider uppercase"
                 value={joinCode}
-                onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                 maxLength={4}
+                data-testid="join-code-input"
               />
-              <button className="btn-primary w-full mb-3" onClick={() => joinRoom(joinCode)}>
-                Join Paddock
+              <button 
+                className="btn-primary w-full mb-4"
+                onClick={() => joinRoom(joinCode)}
+                disabled={loading || joinCode.length !== 4}
+                data-testid="join-room-btn"
+              >
+                {loading ? 'Joining...' : 'Join Paddock'}
               </button>
-              <button className="btn-secondary w-full" onClick={createRoom}>
+              <button 
+                className="w-full py-3 rounded-lg border-2 border-white/20 hover:border-f1-red font-semibold transition-all"
+                onClick={createRoom}
+                disabled={loading}
+                data-testid="create-room-btn"
+              >
                 Create New Paddock
               </button>
-              {error && <p className="text-red-500 mt-3 text-center">{error}</p>}
+              {error && <p className="text-red-500 mt-4 text-center" data-testid="error-message">{error}</p>}
             </div>
 
             {recentRooms.length > 0 && (
-              <div className="glass p-4 rounded-xl">
-                <h3 className="orbitron mb-3">Recent Paddocks</h3>
-                {recentRooms.map(r => (
-                  <div key={r.code} className="flex justify-between items-center mb-2 bg-white/5 p-2 rounded">
-                    <span>{r.name}</span>
-                    <button
-                      className="btn-danger"
-                      onClick={async () => {
-                        if (confirm('Delete this room permanently?')) {
-                          await supabaseClient.from('f1_rooms').delete().eq('code', r.code);
-                          const updated = recentRooms.filter(x => x.code !== r.code);
-                          localStorage.setItem('recentRooms', JSON.stringify(updated));
-                          setRecentRooms(updated);
-                        }
-                      }}
-                    >🗑️</button>
-                  </div>
-                ))}
+              <div className="glass rounded-2xl p-6">
+                <h3 className="orbitron text-lg font-bold mb-4">Recent Paddocks</h3>
+                <div className="space-y-2">
+                  {recentRooms.map(room => (
+                    <div 
+                      key={room.code}
+                      className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
+                   >
+                   <div
+                     className="cursor-pointer"
+                     onClick={() => joinRoom(room.code)}
+                   >
+              <div className="font-semibold">{room.name}</div>
+              <div className="text-gray-400 font-mono text-sm">{room.code}</div>
+              </div>
+
+    <button
+      onClick={() => deleteRoom(room.code)}
+      className="text-red-500 hover:text-red-400 text-xl"
+      title="Delete room"
+    >
+      🗑️
+    </button>
+  </div>
+))}
+                </div>
               </div>
             )}
           </div>
         </div>
       );
 
-      // JOIN + CREATE (unchanged logic)
-      const joinRoom = async (code) => {
-        setLoading(true);
-        setError('');
-        try {
-          const { data, error } = await supabaseClient
-            .from('f1_rooms')
-            .select('*')
-            .eq('code', code)
-            .single();
-          if (error) throw error;
-          setCurrentRoom(data);
-          saveRecentRoom(data.code, data.name);
-          setStage('paddock');
-        } catch {
-          setError('Room not found');
+      const renderPodium = (sortedParticipants) => {
+        // Group participants by accuracy for tie handling
+        const podiumPositions = [];
+        const accuracyMap = {};
+        
+        sortedParticipants.forEach(p => {
+          const acc = p.accuracy.toFixed(2);
+          if (!accuracyMap[acc]) {
+            accuracyMap[acc] = [];
+          }
+          accuracyMap[acc].push(p);
+        });
+        
+        const uniqueAccuracies = Object.keys(accuracyMap).sort((a, b) => parseFloat(b) - parseFloat(a));
+        
+        // Fill podium positions (1st, 2nd, 3rd)
+        for (let i = 0; i < Math.min(3, uniqueAccuracies.length); i++) {
+          podiumPositions.push(accuracyMap[uniqueAccuracies[i]]);
         }
-        setLoading(false);
+        
+        // Ensure we have 3 positions
+        while (podiumPositions.length < 3) {
+          podiumPositions.push([]);
+        }
+        
+        const [first, second, third] = podiumPositions;
+        
+        const renderBar = (participants, position) => {
+          if (participants.length === 0) return null;
+          
+          const avgAccuracy = participants.reduce((sum, p) => sum + p.accuracy, 0) / participants.length;
+          const height = 20 + (avgAccuracy * 1.2);
+          
+          let barStyle = {
+            height: `${height}px`,
+            minHeight: '20px'
+          };
+          
+          if (participants.length === 1) {
+            barStyle.backgroundColor = TEAM_COLORS[participants[0].team] || '#e10600';
+          } else {
+            // Multiple participants - striped
+            const color1 = TEAM_COLORS[participants[0].team] || '#e10600';
+            const color2 = TEAM_COLORS[participants[1].team] || '#0600EF';
+            barStyle = {
+              ...barStyle,
+              '--color1': color1,
+              '--color2': color2
+            };
+          }
+          
+          return (
+            <div className="flex flex-col items-center" style={{ width: '120px' }}>
+              <div className="mb-6 text-center relative z-10">
+                {participants.map((p, idx) => (
+                  <div key={p.id}>
+                    <div className="font-bold text-sm">{p.name}</div>
+                    <div className="text-xs text-gray-400">{p.accuracy.toFixed(1)}%</div>
+                  </div>
+                ))}
+              </div>
+              <div 
+                className={`podium-bar w-full ${participants.length > 1 ? 'striped' : ''}`}
+                style={barStyle}
+                data-testid={`podium-position-${position}`}
+              >
+                <div className="absolute -top-12 left-0 right-0 text-center pointer-events-none">
+                  <span className="text-2xl font-black orbitron">{position}</span>
+                </div>
+              </div>
+            </div>
+          );
+        };
+        
+        return (
+          <div className="flex items-end justify-center gap-8 h-64" data-testid="live-podium">
+            {/* 2nd Place - Left */}
+            {renderBar(second, 2)}
+            
+            {/* 1st Place - Center */}
+            {renderBar(first, 1)}
+            
+            {/* 3rd Place - Right */}
+            {renderBar(third, 3)}
+          </div>
+        );
       };
 
-      const createRoom = async () => {
-        const code = generateRoomCode();
-        const { data } = await supabaseClient.from('f1_rooms').insert([{
-          name: `Paddock ${code}`,
-          code,
-          progress_done: 0,
-          data: { participants: [], sub_rooms: [] }
-        }]).select().single();
-        setCurrentRoom(data);
-        saveRecentRoom(data.code, data.name);
-        setStage('paddock');
-      };
-      // ---------------- PADDOCK ----------------
       const renderPaddock = () => {
-        const participants = currentRoom?.data?.participants || [];
-        const subRooms = currentRoom?.data?.sub_rooms || [];
+        const sortedParticipants = getSortedParticipants(currentRoom);
+        const progressPercentage = (currentRoom.progress_done / 24) * 100;
 
         return (
           <div className="min-h-screen p-8">
             <div className="max-w-6xl mx-auto">
-              <div className="flex justify-between items-center mb-10">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-12">
                 <div>
-                  <h1 className="orbitron text-3xl">{currentRoom.name}</h1>
-                  <p className="text-gray-400 font-mono">Code: {currentRoom.code}</p>
+                  <h1 className="orbitron text-4xl font-black italic glow-text" data-testid="room-name">{currentRoom.name}</h1>
+                  <p className="text-gray-400 font-mono mt-2" data-testid="room-code">Code: {currentRoom.code}</p>
                 </div>
-                <button className="btn-danger" onClick={() => {
-                  setCurrentRoom(null);
-                  setStage('lander');
-                }}>Leave Room</button>
+                <div className="flex gap-3">
+                  <button 
+                    className="btn-secondary"
+                    onClick={copyRoomCode}
+                    data-testid="copy-code-btn"
+                  >
+                    📋 Copy Code
+                  </button>
+                  <button 
+                    className="btn-primary"
+                    onClick={() => setDrawerOpen(true)}
+                    data-testid="manage-grid-btn"
+                  >
+                    Manage Grid
+                  </button>
+                  <button 
+                    className="btn-danger"
+                    onClick={leaveRoom}
+                    data-testid="leave-room-btn"
+                  >
+                    Leave Room
+                  </button>
+                </div>
               </div>
 
-              {/* Races */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {subRooms.map((sr, idx) => (
-                  <div
-                    key={sr.id}
-                    className="glass p-6 rounded-xl cursor-pointer hover:border-red-500"
-                    onClick={() => {
-                      setCurrentSubRoom(sr);
-                      setStage('race-grid');
-                    }}
-                  >
-                    <h3 className="orbitron text-xl mb-2">{sr.name}</h3>
-                    <p className="text-sm text-gray-400">
-                      {sr.predictions.length} predictions
-                    </p>
+              {/* Season Progress */}
+              <div className="glass rounded-2xl p-8 mb-8 text-center">
+                <h2 className="orbitron text-2xl font-bold mb-4">Season Progress</h2>
+                <div className="flex items-center justify-center gap-8">
+                  <div className="relative" style={{ width: '120px', height: '120px' }}>
+                    <svg className="transform -rotate-90" width="120" height="120">
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        stroke="rgba(255,255,255,0.1)"
+                        strokeWidth="10"
+                        fill="none"
+                      />
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        stroke="#e10600"
+                        strokeWidth="10"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 50}`}
+                        strokeDashoffset={`${2 * Math.PI * 50 * (1 - progressPercentage / 100)}`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="orbitron text-2xl font-bold" data-testid="progress-count">{currentRoom.progress_done}/24</span>
+                    </div>
                   </div>
-                ))}
+                  <div className="text-left">
+                    <div className="text-4xl font-black orbitron">{progressPercentage.toFixed(0)}%</div>
+                    <div className="text-gray-400 mb-3">Races Completed</div>
+                    <div className="flex gap-2">
+                      <button 
+                        className="btn-success text-sm py-2 px-3"
+                        onClick={() => {
+                          const newProgress = Math.min(24, currentRoom.progress_done + 1);
+                          updateProgress(newProgress);
+                        }}
+                        disabled={currentRoom.progress_done >= 24}
+                        data-testid="increment-progress-btn"
+                      >
+                        + Race
+                      </button>
+                      <button 
+                        className="btn-danger text-sm py-2 px-3"
+                        onClick={() => {
+                          const newProgress = Math.max(0, currentRoom.progress_done - 1);
+                          updateProgress(newProgress);
+                        }}
+                        disabled={currentRoom.progress_done <= 0}
+                        data-testid="decrement-progress-btn"
+                      >
+                        - Race
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Podium */}
+              <div className="glass rounded-2xl p-8 mb-8">
+                <h2 className="orbitron text-2xl font-bold mb-8 text-center">Live Podium</h2>
+                {sortedParticipants.length > 0 ? (
+                  renderPodium(sortedParticipants)
+                ) : (
+                  <p className="text-center text-gray-400">No participants yet. Add drivers from Manage Grid!</p>
+                )}
+              </div>
+
+              {/* Race Cards */}
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="orbitron text-2xl font-bold">Race Calendar</h2>
+                  <button 
+                    className="btn-primary"
+                    onClick={() => setShowAddRaceModal(true)}
+                    data-testid="add-race-btn"
+                  >
+                    + Add Race
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {currentRoom.data.sub_rooms.map((subRoom, idx) => (
+                    <div 
+                      key={subRoom.id}
+                      className="race-card"
+                      onClick={() => {
+                        setCurrentSubRoom(subRoom);
+                        setStage('race-grid');
+                      }}
+                      data-testid={`race-card-${idx}`}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <h3 className="orbitron text-xl font-bold">{subRoom.name}</h3>
+                        <span className="text-xs bg-f1-red px-2 py-1 rounded">Round {idx + 1}</span>
+                      </div>
+                      <div className="text-gray-400 text-sm">
+                        {subRoom.predictions.length} predictions
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Add Race Modal */}
+            <div className={`overlay ${showAddRaceModal ? 'show' : ''}`} onClick={() => setShowAddRaceModal(false)}></div>
+            <div className={`modal ${showAddRaceModal ? 'show' : ''}`}>
+              <h2 className="orbitron text-2xl font-bold mb-6">Add New Race</h2>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const name = formData.get('raceName');
+                addSubRoom(name);
+                e.target.reset();
+              }}>
+                <input
+                  type="text"
+                  name="raceName"
+                  placeholder="Race Name (e.g., Monaco GP)"
+                  className="input-field mb-4"
+                  required
+                  data-testid="race-name-input"
+                />
+                <div className="flex gap-3">
+                  <button type="submit" className="btn-primary flex-1" data-testid="submit-race-btn">
+                    Create Race
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-secondary flex-1"
+                    onClick={() => setShowAddRaceModal(false)}
+                    data-testid="cancel-race-btn"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Side Drawer */}
+            <div className={`overlay ${drawerOpen ? 'show' : ''}`} onClick={() => setDrawerOpen(false)}></div>
+            <div className={`side-drawer ${drawerOpen ? 'open' : ''}`}>
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="orbitron text-2xl font-bold">Manage Grid</h2>
+                <button onClick={() => setDrawerOpen(false)} className="text-2xl">&times;</button>
+              </div>
+              
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold mb-4">Add Driver</h3>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  const name = formData.get('name');
+                  const team = formData.get('team');
+                  addParticipant(name, team);
+                  e.target.reset();
+                }}>
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Driver Name"
+                    className="input-field mb-3"
+                    required
+                    data-testid="add-driver-name"
+                  />
+                  <select name="team" className="input-field mb-3" required data-testid="add-driver-team">
+                    <option value="">Select Team</option>
+                    {TEAMS.map(team => (
+                      <option key={team} value={team}>{team}</option>
+                    ))}
+                  </select>
+                  <button type="submit" className="btn-primary w-full" data-testid="add-driver-submit">Add Driver</button>
+                </form>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Current Drivers</h3>
+                <div className="space-y-3">
+                  {currentRoom.data.participants.map(p => (
+                    <div key={p.id} className="glass rounded-lg p-4 flex items-center justify-between" data-testid={`driver-${p.id}`}>
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-4 h-4 rounded-full" 
+                          style={{ backgroundColor: TEAM_COLORS[p.team] }}
+                        ></div>
+                        <div>
+                          <div className="font-semibold">{p.name}</div>
+                          <div className="text-xs text-gray-400">{p.team}</div>
+                        </div>
+                      </div>
+                      <button 
+                        className="btn-danger"
+                        onClick={() => {
+                          if (confirm(`Remove ${p.name} from this paddock?`)) {
+                            removeParticipant(p.id);
+                          }
+                        }}
+                        data-testid={`remove-driver-${p.id}`}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         );
       };
 
-      // ---------------- RACE GRID ----------------
       const renderRaceGrid = () => {
-        const freshSubRoom = currentRoom.data.sub_rooms.find(
-          sr => sr.id === currentSubRoom.id
-        );
-        const participants = currentRoom.data.participants;
+        if (!currentSubRoom) return null;
+        // Get fresh sub-room data
+        const freshSubRoom = currentRoom.data.sub_rooms.find(sr => sr.id === currentSubRoom.id);
+        const sortedParticipants = getSortedParticipants(currentRoom, freshSubRoom.id);
 
         return (
           <div className="min-h-screen p-8">
-            <div className="max-w-5xl mx-auto">
-              <button
-                className="mb-6 text-gray-400"
-                onClick={() => setStage('paddock')}
+            <div className="max-w-6xl mx-auto">
+              <button 
+                onClick={() => {
+                  setCurrentSubRoom(null);
+                  setStage('paddock');
+                }}
+                className="mb-6 text-gray-400 hover:text-white transition-colors"
+                data-testid="back-to-paddock-btn"
               >
-                ← Back
+                ← Back to Paddock
               </button>
 
-              <h1 className="orbitron text-3xl mb-6">{freshSubRoom.name}</h1>
-
-              {/* Participants */}
-              <div className="space-y-4 mb-8">
-                {participants.map((p, idx) => (
-                  <div
-                    key={p.id}
-                    className="glass p-5 rounded-xl cursor-pointer"
-                    onClick={() => {
-                      setCurrentUser(p);
-                      setStage('verdicts');
-                    }}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-4">
-                        <div
-                          className="w-5 h-5 rounded-full"
-                          style={{ backgroundColor: TEAM_COLORS[p.team] }}
-                        ></div>
-                        <div>
-                          <div className="font-bold">{p.name}</div>
-                          <div className="text-sm text-gray-400">{p.team}</div>
-                        </div>
-                      </div>
-                      <div className="text-gray-500">#{idx + 1}</div>
-                    </div>
-                  </div>
-                ))}
+              <div className="glass rounded-2xl p-8 mb-8">
+                <h1 className="orbitron text-3xl font-black italic glow-text mb-2" data-testid="subroom-name">{freshSubRoom.name}</h1>
+                <p className="text-gray-400">Race-specific standings</p>
               </div>
 
-              <button
+              {/* Race-Specific Podium */}
+              {sortedParticipants.length > 0 && (
+                <div className="glass rounded-2xl p-8 mb-8">
+                  <h2 className="orbitron text-2xl font-bold mb-8 text-center">Race Podium</h2>
+                  {renderPodium(sortedParticipants)}
+                </div>
+              )}
+
+              {/* Participant List */}
+              <div className="glass rounded-2xl p-8 mb-8">
+                <h2 className="orbitron text-xl font-bold mb-6">All Participants</h2>
+                <div className="space-y-4">
+                  {sortedParticipants.map((participant, idx) => {
+                    const userPredictions = freshSubRoom.predictions.filter(p => p.userId === participant.id);
+                    
+                    return (
+                      <div 
+                        key={participant.id}
+                        className="glass rounded-xl p-6 cursor-pointer hover:border-f1-red transition-all"
+                        onClick={() => {
+                          setCurrentUser(participant);
+                          setStage('verdicts');
+                        }}
+                        data-testid={`participant-${idx}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="text-3xl font-black orbitron text-gray-600">#{idx + 1}</div>
+                            <div 
+                              className="w-6 h-6 rounded-full" 
+                              style={{ backgroundColor: TEAM_COLORS[participant.team] }}
+                            ></div>
+                            <div>
+                              <div className="font-bold text-lg">{participant.name}</div>
+                              <div className="text-sm text-gray-400">{participant.team}</div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-3xl font-black orbitron f1-red">{participant.accuracy.toFixed(1)}%</div>
+                            <div className="text-xs text-gray-400">{userPredictions.length} predictions</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <button 
                 className="btn-primary w-full"
-                onClick={() => setShowAddPredictionModal(true)}
+                onClick={() => {
+                  if (currentRoom.data.participants.length === 0) {
+                    alert('Add participants first from Manage Grid!');
+                    return;
+                  }
+                  setShowAddPredictionModal(true);
+                }}
+                data-testid="add-prediction-btn"
               >
                 + Add Prediction
               </button>
             </div>
-
-            {/* GRAPHICAL MODAL (FIX #4) */}
-            <div className={`overlay ${showAddPredictionModal ? 'show' : ''}`}
-              onClick={() => setShowAddPredictionModal(false)}
-            ></div>
-
+            
+            {/* Add Prediction Modal */}
+            <div className={`overlay ${showAddPredictionModal ? 'show' : ''}`} onClick={() => setShowAddPredictionModal(false)}></div>
             <div className={`modal ${showAddPredictionModal ? 'show' : ''}`}>
-              <h2 className="orbitron text-xl mb-4">Add Prediction</h2>
-              <textarea
-                className="input-field mb-4"
-                rows="3"
-                value={predictionText}
-                onChange={e => setPredictionText(e.target.value)}
-                placeholder="Enter your prediction…"
-              />
-              <button
-                className="btn-primary w-full"
-                onClick={() => {
-                  if (!predictionText.trim()) return;
-
-                  const updated = currentRoom.data.sub_rooms.map(sr => {
-                    if (sr.id === freshSubRoom.id) {
-                      return {
-                        ...sr,
-                        predictions: [
-                          ...sr.predictions,
-                          {
-                            id: generateId(),
-                            userId: currentUser?.id || '',
-                            text: predictionText,
-                            done: false
-                          }
-                        ]
-                      };
-                    }
-                    return sr;
-                  });
-
-                  supabaseClient.from('f1_rooms')
-                    .update({ data: { ...currentRoom.data, sub_rooms: updated } })
-                    .eq('id', currentRoom.id);
-
-                  setPredictionText('');
-                  setShowAddPredictionModal(false);
-                }}
-              >
-                Save Prediction
-              </button>
+              <h2 className="orbitron text-2xl font-bold mb-6">Add New Prediction</h2>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const userId = formData.get('userId');
+                const text = formData.get('predictionText');
+                addPrediction(freshSubRoom.id, userId, text);
+                e.target.reset();
+              }}>
+                <select 
+                  name="userId" 
+                  className="input-field mb-4" 
+                  required
+                  data-testid="prediction-user-select"
+                >
+                  <option value="">Select Driver</option>
+                  {currentRoom.data.participants.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <textarea
+                  name="predictionText"
+                  placeholder="Enter prediction (e.g., Leclerc P1, Rain on Lap 20)"
+                  className="input-field mb-4"
+                  rows="3"
+                  required
+                  data-testid="prediction-text-input"
+                ></textarea>
+                <div className="flex gap-3">
+                  <button type="submit" className="btn-primary flex-1" data-testid="submit-prediction-btn">
+                    Add Prediction
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-secondary flex-1"
+                    onClick={() => setShowAddPredictionModal(false)}
+                    data-testid="cancel-prediction-btn"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         );
       };
 
-      // ---------------- VERDICTS ----------------
       const renderVerdicts = () => {
-        const freshSubRoom = currentRoom.data.sub_rooms.find(
-          sr => sr.id === currentSubRoom.id
-        );
-        const predictions = freshSubRoom.predictions.filter(
-          p => p.userId === currentUser.id
-        );
+        // Get fresh sub-room data from currentRoom
+        const freshSubRoom = currentRoom.data.sub_rooms.find(sr => sr.id === currentSubRoom.id);
+        const userPredictions = freshSubRoom ? freshSubRoom.predictions.filter(p => p.userId === currentUser.id) : [];
+        const accuracy = calculateAccuracy(currentRoom, currentUser.id, currentSubRoom.id);
+        const correctCount = userPredictions.filter(p => p.done).length;
+        const totalCount = userPredictions.length;
 
         return (
           <div className="min-h-screen p-8">
             <div className="max-w-4xl mx-auto">
-              <button
-                className="mb-6 text-gray-400"
-                onClick={() => setStage('race-grid')}
+              <button 
+                onClick={() => {
+                  setCurrentUser(null);
+                  setStage('race-grid');
+                }}
+                className="mb-6 text-gray-400 hover:text-white transition-colors"
+                data-testid="back-to-race-grid-btn"
               >
-                ← Back
+                ← Back to Race Grid
               </button>
 
-              <h1 className="orbitron text-3xl mb-6">{currentUser.name}</h1>
-
-              <div className="space-y-4">
-                {predictions.map((pred, idx) => (
-                  <div key={pred.id} className="glass p-4 rounded-xl">
-                    <div className="flex justify-between items-center">
-                      <span>{pred.text}</span>
-                      <input
-                        type="checkbox"
-                        checked={pred.done}
-                        onChange={() => {
-                          const updated = freshSubRoom.predictions.map(p =>
-                            p.id === pred.id ? { ...p, done: !p.done } : p
-                          );
-
-                          supabaseClient.from('f1_rooms')
-                            .update({
-                              data: {
-                                ...currentRoom.data,
-                                sub_rooms: currentRoom.data.sub_rooms.map(sr =>
-                                  sr.id === freshSubRoom.id
-                                    ? { ...sr, predictions: updated }
-                                    : sr
-                                )
-                              }
-                            })
-                            .eq('id', currentRoom.id);
-                        }}
-                      />
+              {/* Driver Header Card */}
+              <div className="glass rounded-2xl p-8 mb-8" style={{
+                background: `linear-gradient(135deg, rgba(${parseInt(TEAM_COLORS[currentUser.team]?.slice(1,3) || 'e1', 16)}, ${parseInt(TEAM_COLORS[currentUser.team]?.slice(3,5) || '06', 16)}, ${parseInt(TEAM_COLORS[currentUser.team]?.slice(5,7) || '00', 16)}, 0.1), rgba(10, 10, 10, 0.95))`,
+                backdropFilter: 'blur(15px)',
+                border: `1px solid ${TEAM_COLORS[currentUser.team] || '#e10600'}40`
+              }}>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-4">
+                    <div 
+                      className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black orbitron" 
+                      style={{ 
+                        backgroundColor: TEAM_COLORS[currentUser.team],
+                        boxShadow: `0 0 30px ${TEAM_COLORS[currentUser.team]}80`
+                      }}
+                    >
+                      {currentUser.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h1 className="orbitron text-3xl font-black" data-testid="user-name">{currentUser.name}</h1>
+                      <p className="text-gray-400 text-lg">{currentUser.team}</p>
+                      <p className="text-sm text-gray-500 mt-1">{currentSubRoom.name}</p>
                     </div>
                   </div>
-                ))}
+                  <div className="text-right">
+                    <div className="text-5xl font-black orbitron f1-red mb-2" data-testid="user-accuracy">
+                      {accuracy.toFixed(1)}%
+                    </div>
+                    <div className="text-gray-400">
+                      <span className="text-green-500 font-bold">{correctCount}</span> / {totalCount} Correct
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Stats Bar */}
+                <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500"
+                    style={{ width: `${accuracy}%` }}
+                  ></div>
+                </div>
               </div>
-            </div>
+
+              {/* Predictions Grid */}
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="orbitron text-2xl font-bold">Predictions</h2>
+                <div className="text-sm text-gray-400">
+                  {userPredictions.length} total
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                {userPredictions.length === 0 ? (
+                  <div className="glass rounded-2xl p-12 text-center">
+                    <div className="text-6xl mb-4">🏁</div>
+                    <p className="text-gray-400 text-lg">No predictions yet for this race.</p>
+                    <p className="text-gray-500 text-sm mt-2">Click the button below to add your first prediction!</p>
+                  </div>
+                ) : (
+                  userPredictions.map((prediction, idx) => (
+                    <div 
+                      key={prediction.id}
+                      className={`prediction-card ${prediction.done ? 'done' : ''}`}
+                      data-testid={`prediction-${prediction.id}`}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 mt-1">
+                          <input
+                            type="checkbox"
+                            checked={prediction.done}
+                            onChange={() => togglePredictionDone(currentSubRoom.id, prediction.id)}
+                            className="checkbox-custom"
+                            data-testid={`prediction-checkbox-${prediction.id}`}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-xs font-mono text-gray-500">#{idx + 1}</span>
+                                {prediction.done && (
+                                  <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full font-semibold">
+                                    ✓ Correct
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`text-lg leading-relaxed ${prediction.done ? 'line-through text-gray-500' : 'text-white'}`}>
+                                {prediction.text}
+                              </p>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                if (confirm('Delete this prediction?')) {
+                                  deletePrediction(currentSubRoom.id, prediction.id);
+                                }
+                              }}
+                              className="text-red-500 hover:text-red-400 transition-colors text-2xl flex-shrink-0"
+                              data-testid={`delete-prediction-${prediction.id}`}
+                              title="Delete prediction"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+           </div>
           </div>
         );
       };
 
-      // ---------------- MAIN SWITCH ----------------
+      // Main Render
       return (
-        <>
+        <div>
           {stage === 'lander' && renderLander()}
           {stage === 'paddock' && renderPaddock()}
           {stage === 'race-grid' && renderRaceGrid()}
           {stage === 'verdicts' && renderVerdicts()}
-        </>
+        </div>
       );
-    }
+      }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    // Render App
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
   </script>
 </body>
 </html>
