@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>F1 Paddock Predictions</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          f1red: '#e10600',
+          f1dark: '#050505',
+          f1gray: '#111111',
+          f1border: '#1f1f1f',
+        },
+        fontFamily: {
+          orbitron: ['Orbitron', 'sans-serif'],
+          rajdhani: ['Rajdhani', 'sans-serif'],
+        }
+      }
+    }
+  }
+</script>
+
+<!-- React 18 + Babel -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<!-- Supabase JS v2 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: #050505;
+    color: #f0f0f0;
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Animated grid background */
+  .grid-bg {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(225,6,0,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(225,6,0,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glassmorphism card */
+  .glass {
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+  }
+
+  .glass-strong {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+  }
+
+  /* Red glow accent */
+  .red-glow {
+    box-shadow: 0 0 20px rgba(225,6,0,0.3), 0 0 60px rgba(225,6,0,0.1);
+  }
+
+  /* Podium bar */
+  .podium-bar {
+    transition: height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border-radius: 6px 6px 0 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .podium-bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 50%);
+  }
+
+  /* Input focus */
+  input:focus, select:focus {
+    outline: none;
+    border-color: #e10600 !important;
+    box-shadow: 0 0 0 2px rgba(225,6,0,0.15);
+  }
+
+  /* Checkbox custom */
+  .pred-checkbox {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    background: transparent;
+  }
+  .pred-checkbox:checked {
+    background: #e10600;
+    border-color: #e10600;
+  }
+  .pred-checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: #111; }
+  ::-webkit-scrollbar-thumb { background: #e10600; border-radius: 2px; }
+
+  /* Fade in animation */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-up { animation: fadeUp 0.4s ease forwards; }
+
+  /* Pulse dot */
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+  .live-dot { animation: pulse-dot 1.5s ease infinite; }
+
+  /* Tab underline */
+  .tab-active {
+    border-bottom: 2px solid #e10600;
+    color: #e10600;
+  }
+
+  /* Loading spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid rgba(225,6,0,0.2);
+    border-top-color: #e10600;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  /* Stripe pattern for tied bars */
+  .stripe-bar {
+    background-image: repeating-linear-gradient(
+      45deg,
+      var(--c1) 0px,
+      var(--c1) 10px,
+      var(--c2) 10px,
+      var(--c2) 20px
+    );
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { createClient } = supabase;
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+/* ─── Constants ─── */
+const SUPABASE_URL = 'https://gyzflcxqehesojhimokd.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5emZsY3hxZWhlc29qaGltb2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMzQ4MjcsImV4cCI6MjA4MzcxMDgyN30.fOW7qr9cNEUp6otJU2f-tXtOJxRX4Wge9R76OXE-_Tk';
+const TABLE = 'f1_rooms';
+const MAX_RECENT = 5;
+
+const TEAM_COLORS = {
+  ferrari:    '#e8002d',
+  redbull:    '#3671c6',
+  mercedes:   '#27f4d2',
+  mclaren:    '#ff8000',
+  alpine:     '#ff87bc',
+  aston:      '#229971',
+  williams:   '#64c4ff',
+  haas:       '#b6babd',
+  rb:         '#6692ff',
+  sauber:     '#52e252',
+};
+
+const TEAM_LABELS = {
+  ferrari:'Ferrari', redbull:'Red Bull', mercedes:'Mercedes',
+  mclaren:'McLaren', alpine:'Alpine', aston:'Aston Martin',
+  williams:'Williams', haas:'Haas', rb:'RB', sauber:'Sauber',
+};
+
+const supabaseClient = createClient(SUPABASE_URL, ANON_KEY);
+
+/* ─── Helpers ─── */
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function getRecentRooms() {
+  try { return JSON.parse(localStorage.getItem('f1_recent_rooms') || '[]'); }
+  catch { return []; }
+}
+
+function saveRecentRoom(code) {
+  const rooms = getRecentRooms().filter(r => r !== code);
+  rooms.unshift(code);
+  localStorage.setItem('f1_recent_rooms', JSON.stringify(rooms.slice(0, MAX_RECENT)));
+}
+
+function calcAccuracy(userId, predictions) {
+  const mine = predictions.filter(p => p.userId === userId);
+  if (mine.length === 0) return 0;
+  const done = mine.filter(p => p.done).length;
+  return Math.round((done / mine.length) * 100);
+}
+
+function calcOverallAccuracy(userId, subRooms) {
+  const all = subRooms.flatMap(sr => sr.predictions || []);
+  return calcAccuracy(userId, all);
+}
+
+/* Podium grouping algorithm */
+function buildPodium(participants, accuracyFn) {
+  const scored = participants.map(p => ({ ...p, acc: accuracyFn(p.id) }));
+  scored.sort((a, b) => b.acc - a.acc);
+
+  const groups = [];
+  let i = 0;
+  while (i < scored.length) {
+    const group = [scored[i]];
+    while (i + 1 < scored.length && scored[i + 1].acc === scored[i].acc) {
+      i++;
+      group.push(scored[i]);
+    }
+    groups.push(group);
+    i++;
+  }
+
+  // Assign podium positions (P1, P2, P3)
+  const podium = [];
+  let rank = 1;
+  for (const group of groups) {
+    if (rank > 3) break;
+    podium.push({ rank, group });
+    rank += group.length;
+  }
+  // Ensure 3 slots
+  const slots = [1, 2, 3].map(r => podium.find(p => p.rank === r) || { rank: r, group: [] });
+  return slots;
+}
+
+function teamColor(team) {
+  return TEAM_COLORS[team] || '#888';
+}
+
+/* ─── Podium Bar ─── */
+function PodiumBar({ slot }) {
+  const heights = { 1: 140, 2: 100, 3: 70 };
+  const h = heights[slot.rank] || 70;
+  const { group } = slot;
+  const empty = group.length === 0;
+
+  let barStyle = {};
+  if (!empty) {
+    if (group.length === 1) {
+      barStyle = { background: teamColor(group[0].team) };
+    } else {
+      const colors = group.map(p => teamColor(p.team));
+      const stops = [];
+      const segW = 100 / colors.length;
+      colors.forEach((c, i) => {
+        stops.push(`${c} ${i * segW}%`, `${c} ${(i + 1) * segW}%`);
+      });
+      barStyle = {
+        background: `repeating-linear-gradient(45deg, ${
+          colors.map((c, i) => `${c} ${i*12}px, ${c} ${(i+1)*12-2}px`).join(', ')
+        })`,
+      };
+      // Simplified stripe for 2 colors
+      if (colors.length === 2) {
+        barStyle = {
+          background: `repeating-linear-gradient(45deg, ${colors[0]} 0px, ${colors[0]} 10px, ${colors[1]} 10px, ${colors[1]} 20px)`,
+        };
+      } else {
+        const step = 10;
+        let grad = '';
+        colors.forEach((c, i) => {
+          grad += `${c} ${i * step}px, ${c} ${(i + 1) * step}px, `;
+        });
+        barStyle = {
+          background: `repeating-linear-gradient(45deg, ${grad.slice(0, -2)})`,
+        };
+      }
+    }
+  }
+
+  const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
+  return (
+    <div className="flex flex-col items-center gap-1" style={{ width: 90 }}>
+      {/* Names */}
+      <div className="flex flex-col items-center gap-0.5 mb-1" style={{ minHeight: 60 }}>
+        {empty ? (
+          <span className="text-xs text-white/20 font-rajdhani">—</span>
+        ) : group.map(p => (
+          <div key={p.id} className="flex flex-col items-center">
+            <span className="text-xs font-semibold font-rajdhani text-white/90 leading-tight text-center" style={{ fontSize: 11 }}>{p.name}</span>
+            <span className="text-xs font-orbitron" style={{ color: teamColor(p.team), fontSize: 10 }}>{p.acc}%</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Bar */}
+      <div
+        className="podium-bar w-full"
+        style={{ height: empty ? h : h, ...barStyle, opacity: empty ? 0.12 : 1,
+          background: empty ? 'rgba(255,255,255,0.05)' : barStyle.background,
+          boxShadow: !empty && group.length === 1 ? `0 0 20px ${teamColor(group[0].team)}44` : 'none',
+        }}
+      >
+        {!empty && (
+          <div className="absolute inset-0 flex items-center justify-center z-10">
+            <span style={{ fontSize: 22 }}>{medals[slot.rank]}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Rank label */}
+      <div className="glass w-full flex items-center justify-center py-1"
+        style={{ borderTop: `2px solid ${slot.rank === 1 ? '#e10600' : 'rgba(255,255,255,0.1)'}` }}>
+        <span className="font-orbitron text-xs" style={{ color: slot.rank === 1 ? '#e10600' : '#888' }}>P{slot.rank}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Podium Section ─── */
+function PodiumSection({ participants, accuracyFn, title }) {
+  const slots = buildPodium(participants, accuracyFn);
+  // Reorder for visual: P2, P1, P3
+  const visual = [slots[1], slots[0], slots[2]];
+
+  return (
+    <div className="glass-strong p-4 fade-up">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-1 h-5 rounded-full" style={{ background: '#e10600' }}></div>
+        <h3 className="font-orbitron text-sm text-white/80 tracking-widest uppercase">{title}</h3>
+      </div>
+      <div className="flex items-end justify-center gap-3" style={{ minHeight: 200 }}>
+        {visual.map(slot => <PodiumBar key={slot.rank} slot={slot} />)}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Sub-Room View ─── */
+function SubRoomView({ subRoom, participants, me, onBack, onUpdateSubRoom }) {
+  const [newText, setNewText] = useState('');
+
+  const addPrediction = useCallback(() => {
+    if (!newText.trim()) return;
+    const updated = deepClone(subRoom);
+    updated.predictions = updated.predictions || [];
+    updated.predictions.push({ id: uid(), userId: me.id, text: newText.trim(), done: false });
+    onUpdateSubRoom(updated);
+    setNewText('');
+  }, [newText, subRoom, me, onUpdateSubRoom]);
+
+  const togglePrediction = useCallback((predId) => {
+    const updated = deepClone(subRoom);
+    const p = updated.predictions.find(p => p.id === predId);
+    if (p) p.done = !p.done;
+    onUpdateSubRoom(updated);
+  }, [subRoom, onUpdateSubRoom]);
+
+  const deletePrediction = useCallback((predId) => {
+    const updated = deepClone(subRoom);
+    updated.predictions = updated.predictions.filter(p => p.id !== predId);
+    onUpdateSubRoom(updated);
+  }, [subRoom, onUpdateSubRoom]);
+
+  const predictions = subRoom.predictions || [];
+
+  // Group predictions by user
+  const byUser = useMemo(() => {
+    const map = {};
+    participants.forEach(p => { map[p.id] = []; });
+    predictions.forEach(pred => {
+      if (!map[pred.userId]) map[pred.userId] = [];
+      map[pred.userId].push(pred);
+    });
+    return map;
+  }, [predictions, participants]);
+
+  const accFn = useCallback((userId) => calcAccuracy(userId, predictions), [predictions]);
+
+  return (
+    <div className="fade-up">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={onBack}
+          className="glass px-3 py-2 text-white/60 hover:text-white transition-colors font-rajdhani font-semibold text-sm flex items-center gap-1">
+          ← Back
+        </button>
+        <div>
+          <h2 className="font-orbitron text-lg text-white">{subRoom.name}</h2>
+          <p className="text-xs text-white/40 font-rajdhani">Race Predictions</p>
+        </div>
+      </div>
+
+      {/* Podium */}
+      {participants.length > 0 && (
+        <div className="mb-6">
+          <PodiumSection participants={participants} accuracyFn={accFn} title="Race Podium" />
+        </div>
+      )}
+
+      {/* Add Prediction */}
+      <div className="glass-strong p-4 mb-6">
+        <p className="font-orbitron text-xs text-white/50 mb-3 tracking-widest">ADD PREDICTION</p>
+        <div className="flex gap-2">
+          <input
+            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white font-rajdhani text-sm placeholder-white/30"
+            placeholder="e.g. Verstappen P1, Safety Car lap 30..."
+            value={newText}
+            onChange={e => setNewText(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addPrediction()}
+          />
+          <button onClick={addPrediction}
+            className="px-4 py-2.5 rounded-lg font-orbitron text-xs text-white font-bold transition-all"
+            style={{ background: '#e10600', boxShadow: '0 0 16px rgba(225,6,0,0.4)' }}>
+            +
+          </button>
+        </div>
+      </div>
+
+      {/* Predictions by participant */}
+      <div className="space-y-4">
+        {participants.map(participant => {
+          const preds = byUser[participant.id] || [];
+          const acc = accFn(participant.id);
+          return (
+            <div key={participant.id} className="glass p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{ background: teamColor(participant.team) }}></div>
+                  <span className="font-rajdhani font-semibold text-white text-sm">{participant.name}</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: teamColor(participant.team) + '22', color: teamColor(participant.team) }}>
+                    {TEAM_LABELS[participant.team]}
+                  </span>
+                </div>
+                <span className="font-orbitron text-xs" style={{ color: '#e10600' }}>{acc}%</span>
+              </div>
+              {preds.length === 0 ? (
+                <p className="text-xs text-white/20 font-rajdhani">No predictions yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {preds.map(pred => (
+                    <div key={pred.id} className="flex items-center gap-3 group">
+                      <input
+                        type="checkbox"
+                        className="pred-checkbox"
+                        checked={pred.done}
+                        onChange={() => togglePrediction(pred.id)}
+                      />
+                      <span className={`flex-1 font-rajdhani text-sm transition-all ${pred.done ? 'line-through text-white/30' : 'text-white/80'}`}>
+                        {pred.text}
+                      </span>
+                      {pred.userId === me.id && (
+                        <button onClick={() => deletePrediction(pred.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-white/30 hover:text-red-400 text-xs">
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Room View (Main Hub) ─── */
+function RoomView({ roomCode, me, onLeave }) {
+  const [roomData, setRoomData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [activeSubRoom, setActiveSubRoom] = useState(null);
+  const [newRaceName, setNewRaceName] = useState('');
+  const [addingRace, setAddingRace] = useState(false);
+  const channelRef = useRef(null);
+
+  // Load room
+  const loadRoom = useCallback(async () => {
+    const { data, error } = await supabaseClient
+      .from(TABLE)
+      .select('data')
+      .eq('id', roomCode)
+      .single();
+    if (error) { setError(error.message); setLoading(false); return; }
+    setRoomData(data.data);
+    setLoading(false);
+  }, [roomCode]);
+
+  // Save room (deep clone before save)
+  const saveRoom = useCallback(async (newData) => {
+    const clone = deepClone(newData);
+    const { error } = await supabaseClient
+      .from(TABLE)
+      .update({ data: clone })
+      .eq('id', roomCode);
+    if (error) console.error('Save error:', error);
+  }, [roomCode]);
+
+  // Real-time subscription
+  useEffect(() => {
+    loadRoom();
+
+    const channel = supabaseClient
+      .channel(`room-${roomCode}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: TABLE,
+        filter: `id=eq.${roomCode}`,
+      }, payload => {
+        setRoomData(payload.new.data);
+        // Sync activeSubRoom if viewing one
+        setActiveSubRoom(prev => {
+          if (!prev) return null;
+          const updated = payload.new.data.sub_rooms?.find(s => s.id === prev.id);
+          return updated || null;
+        });
+      })
+      .subscribe();
+
+    channelRef.current = channel;
+    return () => { supabaseClient.removeChannel(channel); };
+  }, [roomCode, loadRoom]);
+
+  // Update sub-room
+  const handleUpdateSubRoom = useCallback(async (updatedSubRoom) => {
+    if (!roomData) return;
+    const newData = deepClone(roomData);
+    const idx = newData.sub_rooms.findIndex(s => s.id === updatedSubRoom.id);
+    if (idx >= 0) newData.sub_rooms[idx] = updatedSubRoom;
+    setRoomData(newData);
+    setActiveSubRoom(updatedSubRoom);
+    await saveRoom(newData);
+  }, [roomData, saveRoom]);
+
+  // Add race
+  const handleAddRace = useCallback(async () => {
+    if (!newRaceName.trim() || !roomData) return;
+    const newData = deepClone(roomData);
+    newData.sub_rooms = newData.sub_rooms || [];
+    newData.sub_rooms.push({ id: uid(), name: newRaceName.trim(), predictions: [] });
+    setRoomData(newData);
+    setNewRaceName('');
+    setAddingRace(false);
+    await saveRoom(newData);
+  }, [newRaceName, roomData, saveRoom]);
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="spinner"></div>
+    </div>
+  );
+
+  if (error) return (
+    <div className="glass p-6 text-center">
+      <p className="text-red-400 font-rajdhani">{error}</p>
+      <button onClick={onLeave} className="mt-4 text-white/50 text-sm underline">Go back</button>
+    </div>
+  );
+
+  if (!roomData) return null;
+
+  const participants = roomData.participants || [];
+  const subRooms = roomData.sub_rooms || [];
+
+  // Overall accuracy function
+  const overallAccFn = (userId) => calcOverallAccuracy(userId, subRooms);
+
+  if (activeSubRoom) {
+    return (
+      <SubRoomView
+        subRoom={activeSubRoom}
+        participants={participants}
+        me={me}
+        onBack={() => setActiveSubRoom(null)}
+        onUpdateSubRoom={handleUpdateSubRoom}
+      />
+    );
+  }
+
+  return (
+    <div className="fade-up">
+      {/* Room header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="font-orbitron text-lg text-white">{roomCode}</span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-green-400 live-dot"></span>
+              <span className="text-xs text-green-400 font-rajdhani">LIVE</span>
+            </span>
+          </div>
+          <p className="text-xs text-white/40 font-rajdhani">{participants.length} pilot{participants.length !== 1 ? 's' : ''} in paddock</p>
+        </div>
+        <button onClick={onLeave}
+          className="glass px-3 py-2 text-white/50 hover:text-white text-xs font-rajdhani transition-colors">
+          Leave
+        </button>
+      </div>
+
+      {/* Overall Podium */}
+      {participants.length > 0 && (
+        <div className="mb-6">
+          <PodiumSection participants={participants} accuracyFn={overallAccFn} title="Season Standing" />
+        </div>
+      )}
+
+      {/* Participants */}
+      <div className="glass p-4 mb-6">
+        <p className="font-orbitron text-xs text-white/50 mb-3 tracking-widest">PILOTS</p>
+        <div className="flex flex-wrap gap-2">
+          {participants.map(p => (
+            <div key={p.id} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full"
+              style={{ background: teamColor(p.team) + '18', border: `1px solid ${teamColor(p.team)}44` }}>
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: teamColor(p.team) }}></div>
+              <span className="font-rajdhani text-sm text-white/80">{p.name}</span>
+              {p.id === me.id && <span className="text-xs text-white/40">(you)</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Sub-Rooms / Races */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="font-orbitron text-xs text-white/50 tracking-widest">RACE ROOMS</p>
+          <button onClick={() => setAddingRace(v => !v)}
+            className="text-xs font-rajdhani font-semibold px-3 py-1 rounded-full transition-all"
+            style={{ background: addingRace ? 'rgba(255,255,255,0.08)' : 'rgba(225,6,0,0.15)', color: '#e10600', border: '1px solid rgba(225,6,0,0.3)' }}>
+            {addingRace ? 'Cancel' : '+ Add Race'}
+          </button>
+        </div>
+
+        {addingRace && (
+          <div className="glass p-3 mb-3 flex gap-2">
+            <input
+              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white font-rajdhani text-sm placeholder-white/30"
+              placeholder="Race name (e.g. Monaco GP)"
+              value={newRaceName}
+              onChange={e => setNewRaceName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddRace()}
+              autoFocus
+            />
+            <button onClick={handleAddRace}
+              className="px-4 py-2 rounded-lg font-orbitron text-xs text-white font-bold"
+              style={{ background: '#e10600' }}>
+              Add
+            </button>
+          </div>
+        )}
+
+        {subRooms.length === 0 ? (
+          <div className="glass p-8 text-center">
+            <p className="text-4xl mb-2">🏁</p>
+            <p className="text-white/40 font-rajdhani text-sm">No races yet. Add your first GP!</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {subRooms.map(sr => {
+              const preds = sr.predictions || [];
+              const done = preds.filter(p => p.done).length;
+              const pct = preds.length ? Math.round((done / preds.length) * 100) : 0;
+              return (
+                <button key={sr.id} onClick={() => setActiveSubRoom(sr)}
+                  className="glass w-full p-4 text-left hover:bg-white/5 transition-all group">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-rajdhani font-semibold text-white text-sm group-hover:text-red-400 transition-colors">{sr.name}</p>
+                      <p className="text-xs text-white/30 font-rajdhani">{preds.length} prediction{preds.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {/* Progress bar */}
+                      <div className="w-20 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: '#e10600' }}></div>
+                      </div>
+                      <span className="font-orbitron text-xs text-white/40">{pct}%</span>
+                      <span className="text-white/30 group-hover:text-white/60 transition-colors">›</span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Join / Create Room ─── */
+function LandingView({ onEnterRoom }) {
+  const [mode, setMode] = useState('join'); // 'join' | 'create'
+  const [roomCode, setRoomCode] = useState('');
+  const [name, setName] = useState('');
+  const [team, setTeam] = useState('ferrari');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const recentRooms = getRecentRooms();
+
+  const handleJoin = async () => {
+    if (!roomCode.trim() || !name.trim()) { setError('Enter a room code and your name.'); return; }
+    setLoading(true); setError('');
+    const code = roomCode.trim().toUpperCase();
+
+    const { data, error: fetchErr } = await supabaseClient
+      .from(TABLE).select('data').eq('id', code).single();
+
+    if (fetchErr || !data) { setError('Room not found. Check the code.'); setLoading(false); return; }
+
+    // Add participant if not already there
+    const roomData = deepClone(data.data);
+    let me = roomData.participants?.find(p => p.name === name.trim() && p.team === team);
+    if (!me) {
+      me = { id: uid(), name: name.trim(), team };
+      roomData.participants = [...(roomData.participants || []), me];
+      await supabaseClient.from(TABLE).update({ data: roomData }).eq('id', code);
+    }
+
+    saveRecentRoom(code);
+    onEnterRoom(code, me);
+    setLoading(false);
+  };
+
+  const handleCreate = async () => {
+    if (!name.trim()) { setError('Enter your name.'); return; }
+    setLoading(true); setError('');
+    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const me = { id: uid(), name: name.trim(), team };
+    const newData = { participants: [me], sub_rooms: [] };
+
+    const { error: insertErr } = await supabaseClient
+      .from(TABLE).insert({ id: code, data: newData });
+
+    if (insertErr) { setError(insertErr.message); setLoading(false); return; }
+
+    saveRecentRoom(code);
+    onEnterRoom(code, me);
+    setLoading(false);
+  };
+
+  return (
+    <div className="fade-up">
+      {/* Logo */}
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center gap-2 mb-2">
+          <div className="w-8 h-1 rounded-full" style={{ background: '#e10600' }}></div>
+          <span className="font-orbitron text-2xl font-black text-white tracking-wider">PADDOCK</span>
+          <div className="w-8 h-1 rounded-full" style={{ background: '#e10600' }}></div>
+        </div>
+        <p className="text-xs text-white/40 font-rajdhani tracking-widest uppercase">F1 Prediction Arena</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex mb-6 border-b border-white/10">
+        {['join', 'create'].map(m => (
+          <button key={m} onClick={() => setMode(m)}
+            className={`flex-1 py-3 font-orbitron text-xs tracking-widest transition-all ${mode === m ? 'tab-active text-red-500' : 'text-white/40 hover:text-white/60'}`}>
+            {m === 'join' ? 'JOIN ROOM' : 'CREATE ROOM'}
+          </button>
+        ))}
+      </div>
+
+      <div className="glass-strong p-5 space-y-4">
+        {mode === 'join' && (
+          <div>
+            <label className="block text-xs font-orbitron text-white/40 mb-1.5 tracking-widest">ROOM CODE</label>
+            <input
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white font-orbitron text-sm tracking-widest placeholder-white/20 uppercase"
+              placeholder="XXXXXX"
+              value={roomCode}
+              onChange={e => setRoomCode(e.target.value.toUpperCase())}
+              maxLength={8}
+            />
+          </div>
+        )}
+
+        <div>
+          <label className="block text-xs font-orbitron text-white/40 mb-1.5 tracking-widest">YOUR NAME</label>
+          <input
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white font-rajdhani text-sm placeholder-white/30"
+            placeholder="Pilot name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-orbitron text-white/40 mb-1.5 tracking-widest">YOUR TEAM</label>
+          <select
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white font-rajdhani text-sm"
+            value={team}
+            onChange={e => setTeam(e.target.value)}
+            style={{ background: '#0d0d0d' }}
+          >
+            {Object.entries(TEAM_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+        </div>
+
+        {error && <p className="text-red-400 text-xs font-rajdhani">{error}</p>}
+
+        <button
+          onClick={mode === 'join' ? handleJoin : handleCreate}
+          disabled={loading}
+          className="w-full py-3.5 rounded-xl font-orbitron text-sm font-bold text-white transition-all disabled:opacity-50"
+          style={{ background: '#e10600', boxShadow: '0 0 24px rgba(225,6,0,0.4)' }}>
+          {loading ? '...' : mode === 'join' ? 'ENTER PADDOCK' : 'CREATE PADDOCK'}
+        </button>
+      </div>
+
+      {/* Recent rooms */}
+      {recentRooms.length > 0 && (
+        <div className="mt-6">
+          <p className="font-orbitron text-xs text-white/30 mb-2 tracking-widest">RECENT ROOMS</p>
+          <div className="flex flex-wrap gap-2">
+            {recentRooms.map(code => (
+              <button key={code}
+                onClick={() => setRoomCode(code)}
+                className="glass px-3 py-1.5 font-orbitron text-xs text-white/50 hover:text-white transition-colors tracking-widest">
+                {code}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── App Root ─── */
+function App() {
+  const [session, setSession] = useState(null); // { roomCode, me }
+
+  const handleEnterRoom = useCallback((roomCode, me) => {
+    setSession({ roomCode, me });
+  }, []);
+
+  const handleLeave = useCallback(() => {
+    setSession(null);
+  }, []);
+
+  return (
+    <div style={{ position: 'relative', zIndex: 1 }}>
+      <div className="grid-bg"></div>
+
+      {/* Top bar */}
+      <div className="sticky top-0 z-50 flex items-center justify-between px-4 py-3"
+        style={{ background: 'rgba(5,5,5,0.85)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="flex items-center gap-2">
+          <span className="font-orbitron text-sm font-black" style={{ color: '#e10600' }}>F1</span>
+          <span className="font-orbitron text-sm font-black text-white/80">PADDOCK</span>
+        </div>
+        {session && (
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-400 live-dot"></div>
+            <span className="font-orbitron text-xs text-white/40">{session.roomCode}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Main content */}
+      <div className="max-w-md mx-auto px-4 py-6" style={{ position: 'relative', zIndex: 1 }}>
+        {!session ? (
+          <LandingView onEnterRoom={handleEnterRoom} />
+        ) : (
+          <RoomView
+            roomCode={session.roomCode}
+            me={session.me}
+            onLeave={handleLeave}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
