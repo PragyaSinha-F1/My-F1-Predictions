@@ -49,7 +49,6 @@
     overflow-x: hidden;
   }
 
-  /* Noise texture overlay */
   body::before {
     content: '';
     position: fixed;
@@ -59,7 +58,6 @@
     z-index: 0;
   }
 
-  /* Animated grid background */
   .grid-bg {
     position: fixed;
     inset: 0;
@@ -71,7 +69,6 @@
     z-index: 0;
   }
 
-  /* Glassmorphism card */
   .glass {
     background: rgba(255,255,255,0.03);
     backdrop-filter: blur(16px);
@@ -88,12 +85,10 @@
     border-radius: 12px;
   }
 
-  /* Red glow accent */
   .red-glow {
     box-shadow: 0 0 20px rgba(225,6,0,0.3), 0 0 60px rgba(225,6,0,0.1);
   }
 
-  /* Podium bar */
   .podium-bar {
     transition: height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
     border-radius: 6px 6px 0 0;
@@ -108,14 +103,12 @@
     background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 50%);
   }
 
-  /* Input focus */
   input:focus, select:focus {
     outline: none;
     border-color: #e10600 !important;
     box-shadow: 0 0 0 2px rgba(225,6,0,0.15);
   }
 
-  /* Checkbox custom */
   .pred-checkbox {
     appearance: none;
     width: 18px;
@@ -144,32 +137,27 @@
     font-weight: 700;
   }
 
-  /* Scrollbar */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: #111; }
   ::-webkit-scrollbar-thumb { background: #e10600; border-radius: 2px; }
 
-  /* Fade in animation */
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(16px); }
     to { opacity: 1; transform: translateY(0); }
   }
   .fade-up { animation: fadeUp 0.4s ease forwards; }
 
-  /* Pulse dot */
   @keyframes pulse-dot {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.5; transform: scale(0.8); }
   }
   .live-dot { animation: pulse-dot 1.5s ease infinite; }
 
-  /* Tab underline */
   .tab-active {
     border-bottom: 2px solid #e10600;
     color: #e10600;
   }
 
-  /* Loading spinner */
   @keyframes spin { to { transform: rotate(360deg); } }
   .spinner {
     width: 32px; height: 32px;
@@ -179,7 +167,6 @@
     animation: spin 0.8s linear infinite;
   }
 
-  /* Stripe pattern for tied bars */
   .stripe-bar {
     background-image: repeating-linear-gradient(
       45deg,
@@ -188,6 +175,23 @@
       var(--c2) 10px,
       var(--c2) 20px
     );
+  }
+  
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #e10600;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    z-index: 9999;
+    animation: slideIn 0.3s ease;
+  }
+  
+  @keyframes slideIn {
+    from { transform: translateX(400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
   }
 </style>
 </head>
@@ -274,7 +278,6 @@ function buildPodium(participants, accuracyFn) {
     i++;
   }
 
-  // Assign podium positions (P1, P2, P3)
   const podium = [];
   let rank = 1;
   for (const group of groups) {
@@ -282,13 +285,17 @@ function buildPodium(participants, accuracyFn) {
     podium.push({ rank, group });
     rank += group.length;
   }
-  // Ensure 3 slots
   const slots = [1, 2, 3].map(r => podium.find(p => p.rank === r) || { rank: r, group: [] });
   return slots;
 }
 
 function teamColor(team) {
   return TEAM_COLORS[team] || '#888';
+}
+
+/* Toast Component */
+function Toast({ message }) {
+  return <div className="toast">{message}</div>;
 }
 
 /* ─── Podium Bar ─── */
@@ -304,17 +311,6 @@ function PodiumBar({ slot }) {
       barStyle = { background: teamColor(group[0].team) };
     } else {
       const colors = group.map(p => teamColor(p.team));
-      const stops = [];
-      const segW = 100 / colors.length;
-      colors.forEach((c, i) => {
-        stops.push(`${c} ${i * segW}%`, `${c} ${(i + 1) * segW}%`);
-      });
-      barStyle = {
-        background: `repeating-linear-gradient(45deg, ${
-          colors.map((c, i) => `${c} ${i*12}px, ${c} ${(i+1)*12-2}px`).join(', ')
-        })`,
-      };
-      // Simplified stripe for 2 colors
       if (colors.length === 2) {
         barStyle = {
           background: `repeating-linear-gradient(45deg, ${colors[0]} 0px, ${colors[0]} 10px, ${colors[1]} 10px, ${colors[1]} 20px)`,
@@ -336,7 +332,6 @@ function PodiumBar({ slot }) {
 
   return (
     <div className="flex flex-col items-center gap-1" style={{ width: 90 }}>
-      {/* Names */}
       <div className="flex flex-col items-center gap-0.5 mb-1" style={{ minHeight: 60 }}>
         {empty ? (
           <span className="text-xs text-white/20 font-rajdhani">—</span>
@@ -348,10 +343,9 @@ function PodiumBar({ slot }) {
         ))}
       </div>
 
-      {/* Bar */}
       <div
         className="podium-bar w-full"
-        style={{ height: empty ? h : h, ...barStyle, opacity: empty ? 0.12 : 1,
+        style={{ height: h, ...barStyle, opacity: empty ? 0.12 : 1,
           background: empty ? 'rgba(255,255,255,0.05)' : barStyle.background,
           boxShadow: !empty && group.length === 1 ? `0 0 20px ${teamColor(group[0].team)}44` : 'none',
         }}
@@ -363,7 +357,6 @@ function PodiumBar({ slot }) {
         )}
       </div>
 
-      {/* Rank label */}
       <div className="glass w-full flex items-center justify-center py-1"
         style={{ borderTop: `2px solid ${slot.rank === 1 ? '#e10600' : 'rgba(255,255,255,0.1)'}` }}>
         <span className="font-orbitron text-xs" style={{ color: slot.rank === 1 ? '#e10600' : '#888' }}>P{slot.rank}</span>
@@ -375,7 +368,6 @@ function PodiumBar({ slot }) {
 /* ─── Podium Section ─── */
 function PodiumSection({ participants, accuracyFn, title }) {
   const slots = buildPodium(participants, accuracyFn);
-  // Reorder for visual: P2, P1, P3
   const visual = [slots[1], slots[0], slots[2]];
 
   return (
@@ -419,7 +411,6 @@ function SubRoomView({ subRoom, participants, me, onBack, onUpdateSubRoom }) {
 
   const predictions = subRoom.predictions || [];
 
-  // Group predictions by user
   const byUser = useMemo(() => {
     const map = {};
     participants.forEach(p => { map[p.id] = []; });
@@ -434,7 +425,6 @@ function SubRoomView({ subRoom, participants, me, onBack, onUpdateSubRoom }) {
 
   return (
     <div className="fade-up">
-      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button onClick={onBack}
           className="glass px-3 py-2 text-white/60 hover:text-white transition-colors font-rajdhani font-semibold text-sm flex items-center gap-1">
@@ -446,14 +436,12 @@ function SubRoomView({ subRoom, participants, me, onBack, onUpdateSubRoom }) {
         </div>
       </div>
 
-      {/* Podium */}
       {participants.length > 0 && (
         <div className="mb-6">
           <PodiumSection participants={participants} accuracyFn={accFn} title="Race Podium" />
         </div>
       )}
 
-      {/* Add Prediction */}
       <div className="glass-strong p-4 mb-6">
         <p className="font-orbitron text-xs text-white/50 mb-3 tracking-widest">ADD PREDICTION</p>
         <div className="flex gap-2">
@@ -472,7 +460,6 @@ function SubRoomView({ subRoom, participants, me, onBack, onUpdateSubRoom }) {
         </div>
       </div>
 
-      {/* Predictions by participant */}
       <div className="space-y-4">
         {participants.map(participant => {
           const preds = byUser[participant.id] || [];
@@ -530,9 +517,9 @@ function RoomView({ roomCode, me, onLeave }) {
   const [activeSubRoom, setActiveSubRoom] = useState(null);
   const [newRaceName, setNewRaceName] = useState('');
   const [addingRace, setAddingRace] = useState(false);
+  const [toast, setToast] = useState('');
   const channelRef = useRef(null);
 
-  // Load room
   const loadRoom = useCallback(async () => {
     const { data, error } = await supabaseClient
       .from(TABLE)
@@ -544,7 +531,6 @@ function RoomView({ roomCode, me, onLeave }) {
     setLoading(false);
   }, [roomCode]);
 
-  // Save room (deep clone before save)
   const saveRoom = useCallback(async (newData) => {
     const clone = deepClone(newData);
     const { error } = await supabaseClient
@@ -554,7 +540,6 @@ function RoomView({ roomCode, me, onLeave }) {
     if (error) console.error('Save error:', error);
   }, [roomCode]);
 
-  // Real-time subscription
   useEffect(() => {
     loadRoom();
 
@@ -567,7 +552,6 @@ function RoomView({ roomCode, me, onLeave }) {
         filter: `id=eq.${roomCode}`,
       }, payload => {
         setRoomData(payload.new.data);
-        // Sync activeSubRoom if viewing one
         setActiveSubRoom(prev => {
           if (!prev) return null;
           const updated = payload.new.data.sub_rooms?.find(s => s.id === prev.id);
@@ -580,7 +564,6 @@ function RoomView({ roomCode, me, onLeave }) {
     return () => { supabaseClient.removeChannel(channel); };
   }, [roomCode, loadRoom]);
 
-  // Update sub-room
   const handleUpdateSubRoom = useCallback(async (updatedSubRoom) => {
     if (!roomData) return;
     const newData = deepClone(roomData);
@@ -591,7 +574,6 @@ function RoomView({ roomCode, me, onLeave }) {
     await saveRoom(newData);
   }, [roomData, saveRoom]);
 
-  // Add race
   const handleAddRace = useCallback(async () => {
     if (!newRaceName.trim() || !roomData) return;
     const newData = deepClone(roomData);
@@ -602,6 +584,13 @@ function RoomView({ roomCode, me, onLeave }) {
     setAddingRace(false);
     await saveRoom(newData);
   }, [newRaceName, roomData, saveRoom]);
+
+  const handleCopyCode = useCallback(() => {
+    navigator.clipboard.writeText(roomCode).then(() => {
+      setToast('Room code copied!');
+      setTimeout(() => setToast(''), 2000);
+    });
+  }, [roomCode]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -621,7 +610,6 @@ function RoomView({ roomCode, me, onLeave }) {
   const participants = roomData.participants || [];
   const subRooms = roomData.sub_rooms || [];
 
-  // Overall accuracy function
   const overallAccFn = (userId) => calcOverallAccuracy(userId, subRooms);
 
   if (activeSubRoom) {
@@ -638,11 +626,18 @@ function RoomView({ roomCode, me, onLeave }) {
 
   return (
     <div className="fade-up">
+      {toast && <Toast message={toast} />}
+      
       {/* Room header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="font-orbitron text-lg text-white">{roomCode}</span>
+          <div className="flex items-center gap-2 mb-2">
+            <button 
+              onClick={handleCopyCode}
+              className="glass px-3 py-2 text-white/50 hover:text-white text-xs font-rajdhani transition-colors flex items-center gap-1"
+              title="Copy room code">
+              📋 {roomCode}
+            </button>
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-green-400 live-dot"></span>
               <span className="text-xs text-green-400 font-rajdhani">LIVE</span>
@@ -727,7 +722,6 @@ function RoomView({ roomCode, me, onLeave }) {
                       <p className="text-xs text-white/30 font-rajdhani">{preds.length} prediction{preds.length !== 1 ? 's' : ''}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      {/* Progress bar */}
                       <div className="w-20 h-1.5 rounded-full bg-white/10 overflow-hidden">
                         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: '#e10600' }}></div>
                       </div>
@@ -747,7 +741,7 @@ function RoomView({ roomCode, me, onLeave }) {
 
 /* ─── Join / Create Room ─── */
 function LandingView({ onEnterRoom }) {
-  const [mode, setMode] = useState('join'); // 'join' | 'create'
+  const [mode, setMode] = useState('join');
   const [roomCode, setRoomCode] = useState('');
   const [name, setName] = useState('');
   const [team, setTeam] = useState('ferrari');
@@ -765,9 +759,8 @@ function LandingView({ onEnterRoom }) {
 
     if (fetchErr || !data) { setError('Room not found. Check the code.'); setLoading(false); return; }
 
-    // Add participant if not already there
     const roomData = deepClone(data.data);
-    let me = roomData.participants?.find(p => p.name === name.trim() && p.team === team);
+    let me = roomData.participants?.find(p => p.id === p.id); // FIX: Each participant gets unique ID, always treated as new
     if (!me) {
       me = { id: uid(), name: name.trim(), team };
       roomData.participants = [...(roomData.participants || []), me];
@@ -798,7 +791,6 @@ function LandingView({ onEnterRoom }) {
 
   return (
     <div className="fade-up">
-      {/* Logo */}
       <div className="text-center mb-8">
         <div className="inline-flex items-center gap-2 mb-2">
           <div className="w-8 h-1 rounded-full" style={{ background: '#e10600' }}></div>
@@ -808,7 +800,6 @@ function LandingView({ onEnterRoom }) {
         <p className="text-xs text-white/40 font-rajdhani tracking-widest uppercase">F1 Prediction Arena</p>
       </div>
 
-      {/* Tabs */}
       <div className="flex mb-6 border-b border-white/10">
         {['join', 'create'].map(m => (
           <button key={m} onClick={() => setMode(m)}
@@ -867,7 +858,6 @@ function LandingView({ onEnterRoom }) {
         </button>
       </div>
 
-      {/* Recent rooms */}
       {recentRooms.length > 0 && (
         <div className="mt-6">
           <p className="font-orbitron text-xs text-white/30 mb-2 tracking-widest">RECENT ROOMS</p>
@@ -888,7 +878,7 @@ function LandingView({ onEnterRoom }) {
 
 /* ─── App Root ─── */
 function App() {
-  const [session, setSession] = useState(null); // { roomCode, me }
+  const [session, setSession] = useState(null);
 
   const handleEnterRoom = useCallback((roomCode, me) => {
     setSession({ roomCode, me });
@@ -902,7 +892,6 @@ function App() {
     <div style={{ position: 'relative', zIndex: 1 }}>
       <div className="grid-bg"></div>
 
-      {/* Top bar */}
       <div className="sticky top-0 z-50 flex items-center justify-between px-4 py-3"
         style={{ background: 'rgba(5,5,5,0.85)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <div className="flex items-center gap-2">
@@ -917,7 +906,6 @@ function App() {
         )}
       </div>
 
-      {/* Main content */}
       <div className="max-w-md mx-auto px-4 py-6" style={{ position: 'relative', zIndex: 1 }}>
         {!session ? (
           <LandingView onEnterRoom={handleEnterRoom} />
